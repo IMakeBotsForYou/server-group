@@ -140,6 +140,14 @@ class Mankala:
             self.current_player = int(not self.current_player)
         self.move_number += 1
 
+    def json(self):
+        return {
+            "move number": self.move_number,
+            "current player": self.current_player,
+            "current board": self.board,
+            "log": self.log
+        }
+
 
 ''' Tests '''
 game = Mankala()
