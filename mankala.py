@@ -2,6 +2,15 @@ def index2player(index):
     return index//7
 
 
+def is_current_player(index, player):
+    return index2player(index) == player
+
+
+def get_matching_hole(index):
+    dist_from_bank, side = index % 7, index//7
+    return 7-dist_from_bank+(1-side)*7
+
+
 class Mankala:
     def __init__(self):
         """
@@ -33,22 +42,48 @@ class Mankala:
             index = 8
         return index
 
-    def make_move(self, start_location, verbose=True):
-        if index2player(start_location) != self.current_player:
+    def validate_move(self, index, player=None):
+        if player is None:
+            player = self.current_player
+
+        if index2player(index) != player:
             raise Exception("Invalid Move. That is the second player's territory.")
-        amount = self.board[start_location]
-        self.board[start_location] = 0
+
+    def make_move(self, current_index, verbose=True):
+        self.validate_move(current_index)
+        save_start = current_index
+
+        amount = self.board[current_index]
+        self.board[current_index] = 0
         while amount >= 1:
-            """
-            Progress (counter-clockwise) and lay down the marbles
-            """
-            start_location = self.loop(start_location)
-            self.board[start_location] += 1
+            """Progress (counter-clockwise) and lay down the marbles"""
+            current_index = self.loop(current_index)
+            self.board[current_index] += 1
             amount -= 1
 
+        """ Rule 3. If you land in enemy turf on an empty (now 1) hole, the enemy takes
+            all the marbles in the matching hole on your side into their bank."""
+
+        if not is_current_player(current_index, self.current_player) and self.board[current_index] == 1:
+            # get enemy side
+            opponent = int(not self.current_player)
+            # find matching hole
+            matching_hole = get_matching_hole(current_index)
+            # move all the marbles from the matching hole to the
+            # enemy's bank
+            self.board[opponent*7] += self.board[matching_hole]
+            self.board[matching_hole] = 0
+
         if verbose:
-            print(f"{self.current_player = }")
+            print(f"Player {self.current_player} played {save_start%7}")
             print(f"[{self.board[7]}]{self.board[8:14]}\n   {self.board[6:0:-1]}[{self.board[0]}]")
 
         self.current_player = int(not self.current_player)
+
+
+''' Tests '''
+game = Mankala()
+game.make_move(6)
+game.make_move(10)
+
 
