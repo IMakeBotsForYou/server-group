@@ -126,5 +126,4 @@ class Mankala:
 game = Mankala()
 game.make_move(6)
 game.make_move(10)
-game.reset()
-
+game.log
