@@ -24,6 +24,12 @@ class Mankala:
         # so we will progress by going backwards.
         # this representation is the easiest to code.
         self.board = [0, 4, 4, 4, 4, 4, 4] * 2
+        # self.board = [0, 4, 4, 4, 4, 4, 4] + [-1, -1, -1, 4, 0, 0]
+        # ^ ^ ^
+        # game.make_move(5)
+        # game.make_move(10)
+        # to check winner check.
+        #
         self.log = {
 
         }
@@ -100,16 +106,29 @@ class Mankala:
         if current_index == self.current_player * 7:
             change_move = False
 
-        if verbose:
-            print(f"Player {self.current_player} played {save_start%7}")
-            print(f"[{self.board[7]}]{self.board[8:14]}\n   {self.board[6:0:-1]}[{self.board[0]}]")
+        side_a, side_b = self.get_side_marbles(0), self.get_side_marbles(1)
+        if side_a == 0:
+            self.winner = 1
+            self.game_over = True
+
+        if side_b == 0:
+            self.winner = 0
+            self.game_over = True
 
         if not change_move:
             special = "Extra Move"
         elif rule_3:
             special = "Rule 3, steal."
+        elif self.game_over:
+            special = f"Player {chr(ord('A')+self.winner)} won."
         else:
             special = "nothing"
+
+        if verbose:
+            print(f"Player {self.current_player} played {save_start%7}", end="")
+            if special != "nothing":
+                print(f", {special}")
+            print(f"[{self.board[7]}]{self.board[8:14]}\n   {self.board[6:0:-1]}[{self.board[0]}]")
 
         self.log[self.move_number] = {
             "player": self.current_player,
@@ -124,6 +143,7 @@ class Mankala:
 
 ''' Tests '''
 game = Mankala()
-game.make_move(6)
+game.make_move(5)
 game.make_move(10)
 print(game.log)
+
