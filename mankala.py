@@ -11,6 +11,11 @@ def get_matching_hole(index):
     return 7-dist_from_bank+(1-side)*7
 
 
+def flip_board(board):
+    side1, side2 = board[0:7], board[7:14]
+    return side2+side1
+
+
 class Mankala:
     def __init__(self, id):
         """
@@ -131,8 +136,8 @@ class Mankala:
                 print(f", {special}")
             else:
                 print('')
-                
-            print(f"[{self.board[0]}]{self.board[0:6]}\n   {self.board[13:7:-1]}[{self.board[7]}]")
+
+            print(f"[{self.board[0]}]{self.board[1:7]}\n   {self.board[13:7:-1]}[{self.board[7]}]")
 
         self.log[self.move_number] = {
             "player": self.current_player,
