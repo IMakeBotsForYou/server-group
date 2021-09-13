@@ -188,22 +188,24 @@ def handle_client(client):  # Takes client socket as argument.
             here we get data from the client
             '''
             data = json.loads(client.recv(1024))
-            msg_type = data["type"]
-            if msg_type == "Game Move":
-                play_index = data["index"]
-                try:
-                    games[clients[client]["current game"]]["game"].make_move(play_index, adjust_index=True)
-                except ValueError:
-                    send_error(client, "You've made an invalid move. It is still your turn.", errtype="Invalid Move")
-                except IndexError as e:
-                    # Selected an empty hole.
-                    send_error(client, str(e) + " It is still your turn.", errtype="Invalid Move")
-                except AttributeError:
-                    #Someone won
-                    end_game(clients[client]["current game"])
-
-                else:
-                    send_board_update(clients[client]["current game"])
+            try:
+                msg_type = data["type"]
+                if msg_type == "Game Move":
+                    play_index = data["index"]
+                    try:
+                        games[clients[client]["current game"]]["game"].make_move(play_index, adjust_index=True)
+                    except ValueError:
+                        send_error(client, "You've made an invalid move. It is still your turn.", errtype="Invalid Move")
+                    except IndexError as e:
+                        # Selected an empty hole.
+                        send_error(client, str(e) + " It is still your turn.", errtype="Invalid Move")
+                    except AttributeError:
+                        # Someone won
+                        end_game(clients[client]["current game"])
+                    else:
+                        send_board_update(clients[client]["current game"])
+            except Exception as e:
+                send_error(client, str(e), errtype="Server Error")
 
 
 def broadcast(msg, send_to=None):
