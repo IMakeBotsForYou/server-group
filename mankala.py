@@ -72,10 +72,13 @@ class Mankala:
             player = self.current_player
 
         if index2player(index) != player:
-            raise Exception("Invalid Move. That is the second player's territory.")
+            raise ValueError("Invalid Move. That is the second player's territory.")
+
+        if self.board[index] == 0:
+            raise IndexError(f"Hole #{index%7} ({index}) is empty!")
 
         if self.game_over:
-            raise Exception("Game is over. Cannot play further moves.")
+            raise ValueError("Game is over. Cannot play further moves.")
 
     def get_side_marbles(self, player):
         return sum(self.board[player*7:player*7+7])
