@@ -78,12 +78,22 @@ class Mankala:
             raise IndexError(f"Hole #{index%7} ({index}) is empty!")
 
         if self.game_over:
-            raise ValueError("Game is over. Cannot play further moves.")
+            raise AttributeError("Game is over. Cannot play further moves.")
 
     def get_side_marbles(self, player):
-        return sum(self.board[player*7:player*7+7])
+        print(self.board[player*7+1:player*7+7], sum(self.board[player*7+1:player*7+7]))
+        return sum(self.board[player*7+1:player*7+7])
 
-    def make_move(self, current_index, verbose=True):
+    def make_move(self, current_index, verbose=True, adjust_index=False):
+        """
+        :param current_index: Index to play
+        :param verbose: Print what happened
+        :param adjust_index: Automatically flip the index (flip the board)
+        :return:
+        """
+        if adjust_index:
+            current_index += self.current_player*7
+
         self.validate_move(current_index)
         save_start = current_index
 
@@ -119,10 +129,12 @@ class Mankala:
         if side_a == 0:
             self.winner = 1
             self.game_over = True
+            change_move = True
 
         if side_b == 0:
             self.winner = 0
             self.game_over = True
+            change_move = True
 
         if not change_move:
             special = "Extra Move"
