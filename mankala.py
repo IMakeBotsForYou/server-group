@@ -12,12 +12,13 @@ def get_matching_hole(index):
 
 
 class Mankala:
-    def __init__(self):
+    def __init__(self, id):
         """
         Indexes 0, 7 are the goals.
         0-6  player 1
         7-13 player 2
         """
+        self.id = id
         self.move_number = 1
         self.current_player = 0
         # This is labeled clockwise (down)
@@ -128,7 +129,10 @@ class Mankala:
             print(f"Player {self.current_player} played {save_start%7}", end="")
             if special != "nothing":
                 print(f", {special}")
-            print(f"[{self.board[7]}]{self.board[8:14]}\n   {self.board[6:0:-1]}[{self.board[0]}]")
+            else:
+                print('')
+                
+            print(f"[{self.board[0]}]{self.board[0:6]}\n   {self.board[13:7:-1]}[{self.board[7]}]")
 
         self.log[self.move_number] = {
             "player": self.current_player,
@@ -147,11 +151,3 @@ class Mankala:
             "current board": self.board,
             "log": self.log
         }
-
-
-''' Tests '''
-game = Mankala()
-game.make_move(5)
-game.make_move(10)
-print(game.log)
-
