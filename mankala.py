@@ -71,14 +71,14 @@ class Mankala:
         if player is None:
             player = self.current_player
 
+        if self.game_over:
+            raise AttributeError("Game is over. Cannot play further moves.")
+
         if index2player(index) != player:
             raise ValueError("Invalid Move. That is the second player's territory.")
 
         if self.board[index] == 0:
             raise IndexError(f"Hole #{index%7} ({index}) is empty!")
-
-        if self.game_over:
-            raise AttributeError("Game is over. Cannot play further moves.")
 
     def get_side_marbles(self, player, include_bank=False):
         add = 0
@@ -112,13 +112,14 @@ class Mankala:
         rule_3 = False
         # is_current_player(current_index, self.current_player) and
         if self.board[current_index] == 1:
-            rule_3 = True
             # find matching hole
             matching_hole = get_matching_hole(current_index)
-            # move all the marbles from the matching hole to the
-            # player's bank
-            self.board[self.current_player*7] += self.board[matching_hole]
-            self.board[matching_hole] = 0
+            if self.board[matching_hole] != 0:
+                rule_3 = True
+                # move all the marbles from the matching hole to the
+                # player's bank
+                self.board[self.current_player*7] += self.board[matching_hole]
+                self.board[matching_hole] = 0
 
         """ Landing in your own bank giving you another move.
         """
@@ -132,8 +133,8 @@ class Mankala:
             self.board[0] += side_b
             checkwinner = True
 
-        if side_b == 0:
-            self.board[7] += side_b
+        if side_b == 0 and not change_move:
+            self.board[7] += side_a
             checkwinner = True
 
         if checkwinner:
@@ -142,17 +143,21 @@ class Mankala:
             side_a, side_b = self.get_side_marbles(0, include_bank=True), self.get_side_marbles(1, include_bank=True)
             if side_a > side_b:
                 self.winner = 0
-            elif side_a > side_b:
+            elif side_a < side_b:
                 self.winner = 1
             else:
                 self.winner = 2
 
+        special = ""
         if not change_move:
             special = "Extra Move"
-        elif rule_3:
+        if rule_3:
             special = "Rule 3, steal."
         elif self.game_over:
-            special = f"Player {chr(ord('A')+self.winner)} won."
+            if self.winner == 2:
+                special += "Draw."
+            else:
+                special += f"Player {chr(ord('A')+self.winner)} won."
         else:
             special = "nothing"
 
