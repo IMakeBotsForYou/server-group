@@ -107,18 +107,17 @@ class Mankala:
             self.board[current_index] += 1
             amount -= 1
 
-        """ Rule 3. If you land in enemy turf on an empty (now 1) hole, the enemy takes
-            all the marbles in the matching hole on your side into their bank."""
+        """ Rule 3. If you land in an empty (now 1) hole, the enemy takes
+            all the marbles in the matching hole on your side into your bank."""
         rule_3 = False
-        if not is_current_player(current_index, self.current_player) and self.board[current_index] == 1:
+        # is_current_player(current_index, self.current_player) and
+        if self.board[current_index] == 1:
             rule_3 = True
-            # get enemy side
-            opponent = int(not self.current_player)
             # find matching hole
             matching_hole = get_matching_hole(current_index)
             # move all the marbles from the matching hole to the
-            # enemy's bank
-            self.board[opponent*7] += self.board[matching_hole]
+            # player's bank
+            self.board[self.current_player*7] += self.board[matching_hole]
             self.board[matching_hole] = 0
 
         """ Landing in your own bank giving you another move.
