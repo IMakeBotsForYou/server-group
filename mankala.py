@@ -80,9 +80,11 @@ class Mankala:
         if self.game_over:
             raise AttributeError("Game is over. Cannot play further moves.")
 
-    def get_side_marbles(self, player):
-        print(self.board[player*7+1:player*7+7], sum(self.board[player*7+1:player*7+7]))
-        return sum(self.board[player*7+1:player*7+7])
+    def get_side_marbles(self, player, include_bank=False):
+        add = 0
+        if include_bank:
+            add = self.board[player*7]
+        return sum(self.board[player*7+1:player*7+7]) + add
 
     def make_move(self, current_index, verbose=True, adjust_index=False):
         """
@@ -126,15 +128,25 @@ class Mankala:
             change_move = False
 
         side_a, side_b = self.get_side_marbles(0), self.get_side_marbles(1)
-        if side_a == 0:
-            self.winner = 1
-            self.game_over = True
-            change_move = True
+        checkwinner = False
+        if side_a == 0 and not change_move:
+            self.board[0] += side_b
+            checkwinner = True
 
         if side_b == 0:
-            self.winner = 0
+            self.board[7] += side_b
+            checkwinner = True
+
+        if checkwinner:
             self.game_over = True
             change_move = True
+            side_a, side_b = self.get_side_marbles(0, include_bank=True), self.get_side_marbles(1, include_bank=True)
+            if side_a > side_b:
+                self.winner = 0
+            elif side_a > side_b:
+                self.winner = 1
+            else:
+                self.winner = 2
 
         if not change_move:
             special = "Extra Move"
