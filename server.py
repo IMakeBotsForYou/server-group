@@ -5,11 +5,13 @@ from mankala import Mankala as Game
 from helper_functions import *
 
 # global parameters
+matchmaking_modes = ["training", "fast_queue"]
 params = {
     "gameid": 0,
     "verbose": True,
     "serverup": True,
-    "timeout": 5  # 5 seconds
+    "timeout": 5,  # 5 seconds,
+    "matchmaking mode": "training"
 }
 
 queue = []
@@ -59,7 +61,7 @@ def send_board_update(game_id):
     p2.send(json.dumps(second_p).encode())
 
 
-def send_error(user, data, errtype=None):
+def send_error(user, data, errtype="None"):
     jsonobj = {
         "type": "error",
         "errtype": errtype,
@@ -68,8 +70,43 @@ def send_error(user, data, errtype=None):
     user.send(json.dumps(jsonobj).encode())
 
 
+def simple_message(user, msgtype, data, additional_args=None):
+    if additional_args is None:
+        additional_args = {}
+
+    message = {
+        "type": msgtype,
+        "data": data
+    }
+    for arg in additional_args:
+        message[arg] = additional_args[arg]
+
+    user.send(json.dumps(message).encode())
+
+
+def join_game(game_id, user_socket):
+    if game_id not in games:
+        raise KeyError("Invalid game ID")
+    if len(games[game_id]["users"]) == 1:
+        games[game_id]["users"].append(user_socket)
+        clients[user_socket]["current game"] = game_id
+        send_board_update(game_id)
+    else:
+        a, b = [clients[x]["name"] for x in games[game_id]["users"]]
+        raise IndexError(f"This game has already began, between {a} and {b}")
+
+
+def initialize_game(host):
+    game_id = params["gameid"]
+    games[game_id] = {
+        "game": Game(game_id),
+        "users": [host]
+    }
+    clients[host]["current game"] = game_id
+
+
 def matchmaking():
-    while 1:
+    while params["serverup"]:
         if len(queue) > 1:
             # get game id
             idnum = params["gameid"]
@@ -96,8 +133,10 @@ def accept_incoming_connections():
     If it's a user, it accepts the connection and sends them a welcome message.
     Then, we start a thread for that user and handle their input.
     """
-    matchmaking_thread = Thread(target=matchmaking, daemon=True)
-    matchmaking_thread.start()
+    makingmode = params["matchmaking mode"]
+    if makingmode == "fast_queue":
+        matchmaking_thread = Thread(target=matchmaking, daemon=True)
+        matchmaking_thread.start()
     while params["serverup"]:
         # Accept the user
         client, client_address = SERVER.accept()
@@ -134,8 +173,7 @@ def handle_client(client):  # Takes client socket as argument.
     and commands only the user can see.
     """
     try:
-        m = json.dumps({"type": "Welcome", "data": "Choose a name!"}).encode()
-        client.send(m)
+        simple_message(client, msgtype="Welcome", data="Choose a name!")
         name = client.recv(1024).decode()
         # if there's any keywords we want to ban
         # this might be useful if we have reserved keywords for system functions, like @ or !
@@ -180,7 +218,10 @@ def handle_client(client):  # Takes client socket as argument.
                            "current game": None,
                            "ping_function": call_repeatedly(60, inactivity_check, client)}
 
-        queue.append(client)
+        if params["matchmaking mode"] == "queue":
+            queue.append(client)
+
+        name = clients[client]["name"]
 
         while params["serverup"]:
 
@@ -190,12 +231,65 @@ def handle_client(client):  # Takes client socket as argument.
             data = json.loads(client.recv(1024))
             try:
                 msg_type = data["type"]
+
+                #
+                if msg_type == "Start Game":
+                    initialize_game(client)
+                    simple_message(client, msgtype="Success",
+                                   data=f"You have successfully initialized a game with id {params['gameid']}")
+
+                #
+                if msg_type == "Join Game":
+                    try:
+                        gameid = data["game id"]
+                    except KeyError:
+                        send_error(client, errtype="Bad Message", data="'game id' field missing in Join Game message")
+                    else:
+                        try:
+                            join_game(gameid, client)
+                        except IndexError:
+                            send_error(client, errtype="Join Error",
+                                       data=f"Game #{gameid} is full.")
+                        except KeyError:
+                            send_error(client, errtype="Join Error",
+                                       data=f"#{gameid} is an invalid game ID.")
+                        else:
+                            opponent_socket = games[gameid]["users"][0]
+                            opponent_name = clients[opponent_socket]["name"]
+                            simple_message(client, msgtype="Success",
+                                           data=f"You have successfully joined game #{gameid}, "
+                                                f"your opponent is {opponent_name}")
+
+                            simple_message(opponent_socket, msgtype="Notification",
+                                           data=f"{name} has joined your Lobby.")
+
+                #
+                if msg_type == "Quit Game":
+                    in_game = clients[client]["current game"]
+                    if in_game is None:
+                        send_error(client, errtype="Bad Request", data="Can't quit game if user is not in a game.")
+                    else:
+                        games[in_game]["users"].remove(client)
+                        simple_message(client, msgtype="Success",
+                                       data=f"You have successfully quit game #{in_game}")
+
+                        simple_message(games[in_game]["users"][0], msgtype="Notification",
+                                       data=f"{name} has quit your Lobby.")
+
+                        clients[client]["current game"] = None
+
+                #
                 if msg_type == "Game Move":
-                    play_index = data["index"]
+                    try:
+                        play_index = data["index"]
+                    except KeyError:
+                        send_error(client, errtype="Bad Message", data="'game id' field missing in Join Game message")
+                        continue
                     try:
                         games[clients[client]["current game"]]["game"].make_move(play_index, adjust_index=True)
                     except ValueError:
-                        send_error(client, "You've made an invalid move. It is still your turn.", errtype="Invalid Move")
+                        send_error(client, "You've made an invalid move. It is still your turn.",
+                                   errtype="Invalid Move")
                     except IndexError as e:
                         # Selected an empty hole.
                         send_error(client, str(e) + " It is still your turn.", errtype="Invalid Move")
@@ -205,7 +299,8 @@ def handle_client(client):  # Takes client socket as argument.
                     else:
                         send_board_update(clients[client]["current game"])
             except Exception as e:
-                send_error(client, str(e), errtype="Server Error")
+                print(e)
+                send_error(client, errtype="Server Error", data=str(e))
 
 
 def broadcast(msg, send_to=None):
