@@ -5,15 +5,14 @@ from mankala import Mankala as Game
 from helper_functions import *
 
 # global parameters
-matchmaking_modes = ["training", "fast_queue"]
+matchmaking_modes = ["lobbies", "fast_queue"]
 params = {
-    "gameid": 0,
+    "game_id": 0,
     "verbose": True,
     "serverup": True,
     "timeout": 5,  # 5 seconds,
-    "matchmaking mode": "training"
+    "matchmaking mode": "lobbies"
 }
-
 queue = []
 games = {
 
@@ -27,18 +26,31 @@ def end_game(game_id):
     game = games[game_id]["game"]
     winner = game.winner
     first_p = {
-        "type": "End Game",
+        "type": "Game Over",
         "won": winner == 0,
         "log": game.log
     }
     second_p = {
-        "type": "End Game",
+        "type": "Game Over",
         "won": winner == 1,
         "log": game.log
     }
-    p1, p2 = games[game_id]["users"]
-    p1.send(json.dumps(first_p).encode())
-    p2.send(json.dumps(second_p).encode())
+    try:
+        p1 = games[game_id]["users"][0]
+        send(p1, first_p)
+    except Exception as e:
+        print(e)
+    try:
+        p2 = games[game_id]["users"][1]
+        send(p2, second_p)
+    except Exception as e:
+        print(e)
+
+
+def send(client, obj):
+    obj_str = json.dumps(obj)
+    data = (msg_len(obj_str, 5) + obj_str).encode()
+    client.send(data)
 
 
 def send_board_update(game_id):
@@ -57,8 +69,9 @@ def send_board_update(game_id):
         "your turn": current_turn == 1
     }
     p1, p2 = games[game_id]["users"]
-    p1.send(json.dumps(first_p).encode())
-    p2.send(json.dumps(second_p).encode())
+
+    send(p1, first_p)
+    send(p2, second_p)
 
 
 def send_error(user, data, errtype="None"):
@@ -67,7 +80,7 @@ def send_error(user, data, errtype="None"):
         "errtype": errtype,
         "data": data,
     }
-    user.send(json.dumps(jsonobj).encode())
+    send(user, jsonobj)
 
 
 def simple_message(user, msgtype, data, additional_args=None):
@@ -81,7 +94,7 @@ def simple_message(user, msgtype, data, additional_args=None):
     for arg in additional_args:
         message[arg] = additional_args[arg]
 
-    user.send(json.dumps(message).encode())
+    send(user, message)
 
 
 def join_game(game_id, user_socket):
@@ -97,19 +110,20 @@ def join_game(game_id, user_socket):
 
 
 def initialize_game(host):
-    game_id = params["gameid"]
+    game_id = params["game_id"]
     games[game_id] = {
         "game": Game(game_id),
         "users": [host]
     }
     clients[host]["current game"] = game_id
+    params["game_id"] += 1
 
 
 def matchmaking():
     while params["serverup"]:
         if len(queue) > 1:
             # get game id
-            idnum = params["gameid"]
+            idnum = params["game_id"]
 
             # get first 2 users in queue
             users = queue.pop(0), queue.pop(0)
@@ -121,7 +135,7 @@ def matchmaking():
                 "users": users
             }
             # inc the next game id by 1
-            params["gameid"] += 1
+            params["game_id"] += 1
             # notify the 2 users of game start.
             # first user to join the queue gets first move.
             send_board_update(idnum)
@@ -182,12 +196,12 @@ def handle_client(client):  # Takes client socket as argument.
 
         banned_words_used = [key_word for key_word in banned_words if name.find(key_word) != -1]
         banned_words_used += [x for x in names if name == x]
-        while len(banned_words_used) != 0 or (len(name) > 16 or len(name) < 3):
+        while len(banned_words_used) != 0 or (len(name) > 32 or len(name) < 3):
 
-            if len(name) > 16 or len(name) < 3:
-                data = "Name must be between 3-16 characters"
+            if len(name) > 32 or len(name) < 3:
+                data = "Name must be between 3-32 characters"
             else:
-                data = "Invalid nickname, the name is either taken\nor it has an illegal character"
+                data = f"Invalid nickname. Unavailable key words used: {banned_words_used}"
 
             send_error(client, data, errtype="Invalid Name")
 
@@ -228,55 +242,85 @@ def handle_client(client):  # Takes client socket as argument.
             '''
             here we get data from the client
             '''
+            print(client.recv(1024, MSG_PEEK))
             data = json.loads(client.recv(1024))
+
             try:
                 msg_type = data["type"]
 
                 #
-                if msg_type == "Start Game":
-                    initialize_game(client)
-                    simple_message(client, msgtype="Success",
-                                   data=f"You have successfully initialized a game with id {params['gameid']}")
-
-                #
-                if msg_type == "Join Game":
-                    try:
-                        gameid = data["game id"]
-                    except KeyError:
-                        send_error(client, errtype="Bad Message", data="'game id' field missing in Join Game message")
-                    else:
-                        try:
-                            join_game(gameid, client)
-                        except IndexError:
-                            send_error(client, errtype="Join Error",
-                                       data=f"Game #{gameid} is full.")
-                        except KeyError:
-                            send_error(client, errtype="Join Error",
-                                       data=f"#{gameid} is an invalid game ID.")
-                        else:
-                            opponent_socket = games[gameid]["users"][0]
-                            opponent_name = clients[opponent_socket]["name"]
-                            simple_message(client, msgtype="Success",
-                                           data=f"You have successfully joined game #{gameid}, "
-                                                f"your opponent is {opponent_name}")
-
-                            simple_message(opponent_socket, msgtype="Notification",
-                                           data=f"{name} has joined your Lobby.")
-
-                #
-                if msg_type == "Quit Game":
-                    in_game = clients[client]["current game"]
-                    if in_game is None:
-                        send_error(client, errtype="Bad Request", data="Can't quit game if user is not in a game.")
-                    else:
-                        games[in_game]["users"].remove(client)
+                if params["matchmaking mode"] == "lobbies":
+                    if msg_type == "Start Game":
+                        initialize_game(client)
                         simple_message(client, msgtype="Success",
-                                       data=f"You have successfully quit game #{in_game}")
+                                       data=f"You have successfully initialized a game with id {params['game_id']-1}")
 
-                        simple_message(games[in_game]["users"][0], msgtype="Notification",
-                                       data=f"{name} has quit your Lobby.")
+                    #
+                    if msg_type == "Restart Game":
+                        if clients[client]["current game"] is not None:
+                            game_id = clients[client]["current game"]
+                            # if user is the owner of the game:
+                            if client != games[game_id]["users"][0]:
+                                send_error(client, errtype="Permission Error",
+                                           data="You are not the owner of the game. "
+                                                "Only the owner of the game can restart it.")
+                            if games[game_id]["game"].game_over:
+                                games[game_id]["game"].reset()
+                                simple_message(client, msgtype="Success",
+                                               data=f"You have successfully restarted game #{game_id}")
+                                if len(games[game_id]["users"]) > 1:
+                                    simple_message(games[game_id]["users"][1], msgtype="Notification",
+                                                   data="Your game has been restarted.")
+                                    send_board_update(game_id)
+                            else:
+                                send_error(client, errtype="Permission Error",
+                                           data="Cannot reset a game in progress."
+                                                "A game can only be restarted after it has ended.")
 
-                        clients[client]["current game"] = None
+                    #
+                    if msg_type == "Join Game":
+                        try:
+                            game_id = data["game_id"]
+                        except KeyError:
+                            send_error(client, errtype="Bad Message", data="'game id' field missing in Join Game message")
+                        else:
+                            try:
+                                join_game(game_id, client)
+                            except IndexError:
+                                send_error(client, errtype="Join Error",
+                                           data=f"Game #{game_id} is full.")
+                            except KeyError:
+                                send_error(client, errtype="Join Error",
+                                           data=f"#{game_id} is an invalid game ID.")
+                            else:
+                                opponent_socket = games[game_id]["users"][0]
+                                opponent_name = clients[opponent_socket]["name"]
+                                simple_message(client, msgtype="Success",
+                                               data=f"You have successfully joined game #{game_id}, "
+                                                    f"your opponent is {opponent_name}")
+
+                                simple_message(opponent_socket, msgtype="Notification",
+                                               data=f"{name} has joined your Lobby.")
+
+                    #
+                    if msg_type == "Quit Game":
+                        in_game = clients[client]["current game"]
+                        if in_game is None:
+                            send_error(client, errtype="Bad Request", data="Can't quit game if user is not in a game.")
+                        else:
+                            players = games[in_game]["users"]
+                            players.remove(client)
+
+                            games[in_game]["game"].log_event("Surrender", f"{name} has surrendered")
+                            games[in_game]["game"].set_winner(players[0])
+
+                            simple_message(client, msgtype="Success",
+                                           data=f"You have successfully quit game #{in_game}")
+
+                            simple_message(players[0], msgtype="Notification",
+                                           data=f"{name} has quit your Lobby.")
+
+                            clients[client]["current game"] = None
 
                 #
                 if msg_type == "Game Move":
@@ -298,8 +342,10 @@ def handle_client(client):  # Takes client socket as argument.
                         end_game(clients[client]["current game"])
                     else:
                         send_board_update(clients[client]["current game"])
+
+            #
             except Exception as e:
-                print(e)
+                raise e
                 send_error(client, errtype="Server Error", data=str(e))
 
 
@@ -309,9 +355,7 @@ def broadcast(msg, send_to=None):
         send_to = clients
     for sock in send_to:
         try:
-            sock.send(msg.encode())
-        except AttributeError:
-            sock.send(msg)
+            send(sock, msg)
         except ConnectionResetError:  # 10054
             pass
 

@@ -42,6 +42,13 @@ class Mankala:
         self.game_over = False
         self.winner = None
 
+    def log_event(self, label, data):
+        self.log[label] = data
+
+    def set_winner(self, player):
+        self.game_over = True
+        self.winner = player
+
     def reset(self):
         self.move_number = 1
         self.current_player = 0
@@ -70,7 +77,7 @@ class Mankala:
     def validate_move(self, index, player=None):
         if player is None:
             player = self.current_player
-
+        self.check_win()
         if self.game_over:
             raise AttributeError("Game is over. Cannot play further moves.")
 
@@ -85,6 +92,27 @@ class Mankala:
         if include_bank:
             add = self.board[player*7]
         return sum(self.board[player*7+1:player*7+7]) + add
+
+    def check_win(self):
+        side_a, side_b = self.get_side_marbles(0), self.get_side_marbles(1)
+        checkwinner = False
+        if side_a == 0:
+            self.board[0] += side_b
+            checkwinner = True
+
+        if side_b == 0:
+            self.board[7] += side_a
+            checkwinner = True
+
+        if checkwinner:
+            self.game_over = True
+            side_a, side_b = self.get_side_marbles(0, include_bank=True), self.get_side_marbles(1, include_bank=True)
+            if side_a > side_b:
+                self.winner = 0
+            elif side_a < side_b:
+                self.winner = 1
+            else:
+                self.winner = 2
 
     def make_move(self, current_index, verbose=True, adjust_index=False):
         """
@@ -127,26 +155,9 @@ class Mankala:
         if current_index == self.current_player * 7:
             change_move = False
 
-        side_a, side_b = self.get_side_marbles(0), self.get_side_marbles(1)
-        checkwinner = False
-        if side_a == 0 and not change_move:
-            self.board[0] += side_b
-            checkwinner = True
-
-        if side_b == 0 and not change_move:
-            self.board[7] += side_a
-            checkwinner = True
-
-        if checkwinner:
-            self.game_over = True
+        self.check_win()
+        if self.game_over:
             change_move = True
-            side_a, side_b = self.get_side_marbles(0, include_bank=True), self.get_side_marbles(1, include_bank=True)
-            if side_a > side_b:
-                self.winner = 0
-            elif side_a < side_b:
-                self.winner = 1
-            else:
-                self.winner = 2
 
         special = ""
         if not change_move:
