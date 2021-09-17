@@ -87,6 +87,10 @@ class Mankala:
         if self.board[index] == 0:
             raise IndexError(f"Hole #{index%7} ({index}) is empty!")
 
+    def empty_side(self, side):
+        for index in range(side*7+1, side*7+7):
+            self.board[index] = 0
+
     def get_side_marbles(self, player, include_bank=False):
         add = 0
         if include_bank:
@@ -98,10 +102,12 @@ class Mankala:
         checkwinner = False
         if side_a == 0:
             self.board[0] += side_b
+            self.empty_side(1)
             checkwinner = True
 
         if side_b == 0:
             self.board[7] += side_a
+            self.empty_side(0)
             checkwinner = True
 
         if checkwinner:
@@ -109,6 +115,7 @@ class Mankala:
             side_a, side_b = self.get_side_marbles(0, include_bank=True), self.get_side_marbles(1, include_bank=True)
             if side_a > side_b:
                 self.winner = 0
+
             elif side_a < side_b:
                 self.winner = 1
             else:
