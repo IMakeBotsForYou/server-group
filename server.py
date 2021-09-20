@@ -68,10 +68,17 @@ def send_board_update(game_id):
         "board": flipped_board,
         "your turn": current_turn == 1
     }
-    p1, p2 = games[game_id]["users"]
 
-    send(p1, first_p)
-    send(p2, second_p)
+    try:
+        p1 = games[game_id]["users"][0]
+        send(p1, first_p)
+    except Exception as e:
+        print(e)
+    try:
+        p2 = games[game_id]["users"][1]
+        send(p2, second_p)
+    except Exception as e:
+        print(e)
 
 
 def send_error(user, data, errtype="None"):
@@ -171,12 +178,52 @@ def inactivity_check(client):
     current_time = int(time.time())
     try:
         if current_time - clients[client]["last_response"] > params["timeout"]:
-            clients[client]["last_response"] = int(time.time())
-            # kick(client)
-            # print(clients[client]["name"])
+
+            if clients[client]["current game"] is None:
+                clients[client]["last_response"] = int(time.time())
+            else:
+                # The user is in a game.
+                # Is it a game in progress?
+                game_id = clients[client]["current game"]
+                if games[game_id]["game"].game_over:
+                    clients[client]["last_response"] = int(time.time())
+                else:
+                    # The user is inactive during a game.
+                    kick_from_game(client,
+                                   message=f"Received no response for {params['timeout']}s. "
+                                           f"Kicked for inactivity.")
+
     except KeyError:
         # If there's an error then stop looping this
         return "stop"
+
+
+def kick_from_game(client, message=None):
+    in_game = clients[client]["current game"]
+    if in_game is None:
+        raise AttributeError("Cannot kick a user from a game if they're not in one.")
+    else:
+        """ Do we show the log to both users?
+        """
+        # end_game(in_game)
+
+        name = clients[client]["name"]
+
+        players = games[in_game]["users"]
+        players.remove(client)
+
+        games[in_game]["game"].log_event("Surrender", f"{name} has left the game.")
+        games[in_game]["game"].set_winner(players[0])
+
+        simple_message(players[0], msgtype="Notification",
+                       data=f"{name} has quit your Lobby.")
+
+        print(f"{name} has been kicked from lobby #{in_game}")
+
+        if message:
+            simple_message(client, msgtype="Notification",
+                           data=message)
+        clients[client]["current game"] = None
 
 
 def handle_client(client):  # Takes client socket as argument.
@@ -243,7 +290,10 @@ def handle_client(client):  # Takes client socket as argument.
             here we get data from the client
             '''
             print(client.recv(1024, MSG_PEEK))
-            data = json.loads(client.recv(1024))
+            try:
+                data = json.loads(client.recv(1024))
+            except json.decoder.JSONDecodeError:
+                send_error(client, errtype="Bad Message", data="JSON Parse Failure.")
 
             try:
                 msg_type = data["type"]
@@ -304,23 +354,13 @@ def handle_client(client):  # Takes client socket as argument.
 
                     #
                     if msg_type == "Quit Game":
-                        in_game = clients[client]["current game"]
-                        if in_game is None:
+                        try:
+                            kick_from_game(client)
+                        except AttributeError:
                             send_error(client, errtype="Bad Request", data="Can't quit game if user is not in a game.")
                         else:
-                            players = games[in_game]["users"]
-                            players.remove(client)
-
-                            games[in_game]["game"].log_event("Surrender", f"{name} has surrendered")
-                            games[in_game]["game"].set_winner(players[0])
-
                             simple_message(client, msgtype="Success",
                                            data=f"You have successfully quit game #{in_game}")
-
-                            simple_message(players[0], msgtype="Notification",
-                                           data=f"{name} has quit your Lobby.")
-
-                            clients[client]["current game"] = None
 
                 #
                 if msg_type == "Game Move":
