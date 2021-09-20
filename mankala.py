@@ -10,8 +10,6 @@ def is_current_player(index, player):
 
 def get_matching_hole(index):
     dist_from_bank, side = index % 7, index//7
-    if 7 < dist_from_bank < 1:
-        print(index)
     return 7-dist_from_bank+(1-side)*7
 
 
