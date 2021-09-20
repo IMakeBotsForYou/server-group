@@ -205,24 +205,28 @@ def kick_from_game(client, message=None):
     else:
         """ Do we show the log to both users?
         """
-        # end_game(in_game)
 
         name = clients[client]["name"]
 
         players = games[in_game]["users"]
-        players.remove(client)
 
         games[in_game]["game"].log_event("Surrender", f"{name} has left the game.")
-        games[in_game]["game"].set_winner(players[0])
+        if message:
+            simple_message(client, msgtype="Notification",
+                           data=message)
+
+        user_kicked_index = (1-players.find(client))
+        games[in_game]["game"].winner = user_kicked_index
+
+        end_game(in_game)
+
+        players.remove(client)
 
         simple_message(players[0], msgtype="Notification",
                        data=f"{name} has quit your Lobby.")
 
         print(f"{name} has been kicked from lobby #{in_game}")
 
-        if message:
-            simple_message(client, msgtype="Notification",
-                           data=message)
         clients[client]["current game"] = None
 
 
