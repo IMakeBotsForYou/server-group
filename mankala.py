@@ -228,30 +228,3 @@ class Mankala:
             "current board": self.board,
             "log": self.log
         }
-
-
-def move(board, depth=1):
-
-    invert = 1 if depth % 2 == 0 else -1
-    game = Mankala(id=depth, board=copy(board))
-    max_value = -1000000000000
-    choice = 0
-    if depth == 0:
-        return int(game.eval_board())*invert
-    else:
-        for i in range(1, 7):
-            revertto = len(game.history)
-            try:
-                game.make_move(i, verbose=False)
-            except (ValueError, IndexError):
-                continue
-            except AttributeError:
-                return game.winner * invert
-
-            value = move(game.board, depth=depth-1)
-            game.revert(revertto)
-            if value > max_value:
-                # print(f"Found better move, {i}.\t{max_value=}\t{value=}")
-                max_value = value
-                choice = i
-    return choice
