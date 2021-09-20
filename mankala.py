@@ -1,3 +1,5 @@
+from copy import deepcopy as copy
+
 def index2player(index):
     return index//7
 
@@ -8,6 +10,8 @@ def is_current_player(index, player):
 
 def get_matching_hole(index):
     dist_from_bank, side = index % 7, index//7
+    if 7 < dist_from_bank < 1:
+        print(index)
     return 7-dist_from_bank+(1-side)*7
 
 
@@ -17,7 +21,7 @@ def flip_board(board):
 
 
 class Mankala:
-    def __init__(self, id):
+    def __init__(self, id, board=None):
         """
         Indexes 0, 7 are the goals.
         0-6  player 1
@@ -29,7 +33,10 @@ class Mankala:
         # This is labeled clockwise (down)
         # so we will progress by going backwards.
         # this representation is the easiest to code.
-        self.board = [0, 4, 4, 4, 4, 4, 4] * 2
+        if board is None:
+            self.board = [0, 4, 4, 4, 4, 4, 4] * 2
+        else:
+            self.board = board
         # self.board = [0, 4, 4, 4, 4, 4, 4] + [-1, -1, -1, 4, 0, 0]
         # ^ ^ ^
         # game.make_move(5)
@@ -39,6 +46,8 @@ class Mankala:
         self.log = {
 
         }
+        self.history = [copy(self.board)]
+
         self.game_over = False
         self.winner = None
 
@@ -54,7 +63,6 @@ class Mankala:
         self.current_player = 0
         self.board = [0, 4, 4, 4, 4, 4, 4] * 2
         self.log = {
-
         }
         self.game_over = False
         self.winner = None
@@ -68,10 +76,12 @@ class Mankala:
         # 1 -> skip 0
         skip_bank = (1-self.current_player) * 7
         index -= 1
+
         if skip_bank == 0 and index == 0:
             index = 13
-        if skip_bank == 1 and index == 7:
+        if skip_bank == 7 and index == 7:
             index = 8
+
         return index
 
     def validate_move(self, index, player=None):
@@ -141,12 +151,11 @@ class Mankala:
             current_index = self.loop(current_index)
             self.board[current_index] += 1
             amount -= 1
-
         """ Rule 3. If you land in an empty (now 1) hole, the enemy takes
             all the marbles in the matching hole on your side into your bank."""
         rule_3 = False
         # is_current_player(current_index, self.current_player) and
-        if self.board[current_index] == 1:
+        if self.board[current_index] == 1 and current_index % 7 != 0:
             # find matching hole
             matching_hole = get_matching_hole(current_index)
             if self.board[matching_hole] != 0:
@@ -159,6 +168,8 @@ class Mankala:
         """ Landing in your own bank giving you another move.
         """
         change_move = True
+        if self.current_player == 1:
+            print(current_index, self.current_player * 7)
         if current_index == self.current_player * 7:
             change_move = False
 
@@ -194,9 +205,21 @@ class Mankala:
             "special event": special
         }
 
+        self.history.append(copy(self.board))
+
         if change_move:
             self.current_player = int(not self.current_player)
         self.move_number += 1
+
+    def revert(self, turn):
+        self.current_player = int(turn % 2 == 1)
+        self.board = self.history[turn]
+        self.history = self.history[:turn]
+        for i in range(turn+1, len(self.log)):
+            del self.log[i]
+
+    def eval_board(self):
+        return self.get_side_marbles(0, include_bank=True) > self.get_side_marbles(1, include_bank=True)
 
     def json(self):
         return {
@@ -205,3 +228,30 @@ class Mankala:
             "current board": self.board,
             "log": self.log
         }
+
+
+def move(board, depth=1):
+
+    invert = 1 if depth % 2 == 0 else -1
+    game = Mankala(id=depth, board=copy(board))
+    max_value = -1000000000000
+    choice = 0
+    if depth == 0:
+        return int(game.eval_board())*invert
+    else:
+        for i in range(1, 7):
+            revertto = len(game.history)
+            try:
+                game.make_move(i, verbose=False)
+            except (ValueError, IndexError):
+                continue
+            except AttributeError:
+                return game.winner * invert
+
+            value = move(game.board, depth=depth-1)
+            game.revert(revertto)
+            if value > max_value:
+                # print(f"Found better move, {i}.\t{max_value=}\t{value=}")
+                max_value = value
+                choice = i
+    return choice
