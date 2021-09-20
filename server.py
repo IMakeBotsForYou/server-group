@@ -10,7 +10,7 @@ params = {
     "game_id": 0,
     "verbose": True,
     "serverup": True,
-    "timeout": 5,  # 5 seconds,
+    "timeout": 1,  # 5 seconds,
     "matchmaking mode": "lobbies"
 }
 queue = []
@@ -281,7 +281,7 @@ def handle_client(client):  # Takes client socket as argument.
                                "loses": 0
                            },
                            "current game": None,
-                           "ping_function": call_repeatedly(60, inactivity_check, client)}
+                           "ping_function": call_repeatedly(params["timeout"]*0.5, inactivity_check, client)}
 
         if params["matchmaking mode"] == "queue":
             queue.append(client)
