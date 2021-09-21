@@ -226,6 +226,4 @@ class Mankala:
             "current board": self.board,
             "log": self.log
         }
-
-g = Mankala(0)
-g.make_move(1.5)
+    
