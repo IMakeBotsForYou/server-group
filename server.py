@@ -10,7 +10,7 @@ params = {
     "game_id": 0,
     "verbose": True,
     "serverup": True,
-    "timeout": 1,  # 5 seconds,
+    "timeout": 5,  # 5 seconds,
     "matchmaking mode": "lobbies"
 }
 queue = []
@@ -59,12 +59,12 @@ def send_board_update(game_id):
     current_turn = games[game_id]["game"].current_player
 
     first_p = {
-        "type": "board update",
+        "type": "Board Update",
         "board": board,
         "your turn": current_turn == 0
     }
     second_p = {
-        "type": "board update",
+        "type": "Board Update",
         "board": flipped_board,
         "your turn": current_turn == 1
     }
@@ -185,7 +185,7 @@ def inactivity_check(client):
                 # The user is in a game.
                 # Is it a game in progress?
                 game_id = clients[client]["current game"]
-                if games[game_id]["game"].game_over:
+                if games[game_id]["game"].game_over or len(games[game_id]["users"]) < 2:
                     clients[client]["last_response"] = int(time.time())
                 else:
                     # The user is inactive during a game.
@@ -215,7 +215,7 @@ def kick_from_game(client, message=None):
             simple_message(client, msgtype="Notification",
                            data=message)
 
-        user_kicked_index = (1-players.find(client))
+        user_kicked_index = (1-players.index(client))
         games[in_game]["game"].winner = user_kicked_index
 
         end_game(in_game)
@@ -305,9 +305,14 @@ def handle_client(client):  # Takes client socket as argument.
                 #
                 if params["matchmaking mode"] == "lobbies":
                     if msg_type == "Start Game":
-                        initialize_game(client)
-                        simple_message(client, msgtype="Success",
-                                       data=f"You have successfully initialized a game with id {params['game_id']-1}")
+                        if clients[client]["current game"]:
+                            send_error(errtype="Bad Request",
+                                       data="You are already in a lobby. To create a new one leave your current one.")
+                        else:
+                            initialize_game(client)
+                            simple_message(client, msgtype="Success",
+                                           data=f"You have successfully initialized a game with id {params['game_id']-1}",
+                                           additional_args={"game_id": params['game_id']-1})
 
                     #
                     if msg_type == "Restart Game":
@@ -358,6 +363,7 @@ def handle_client(client):  # Takes client socket as argument.
 
                     #
                     if msg_type == "Quit Game":
+                        in_game = clients[client]["current game"]
                         try:
                             kick_from_game(client)
                         except AttributeError:
@@ -381,6 +387,8 @@ def handle_client(client):  # Takes client socket as argument.
                     except IndexError as e:
                         # Selected an empty hole.
                         send_error(client, str(e) + " It is still your turn.", errtype="Invalid Move")
+                    except TypeError as e:
+                        send_error(client, "Moves have to be ints. It is still your turn.", errtype="Invalid Move")
                     except AttributeError:
                         # Someone won
                         end_game(clients[client]["current game"])
@@ -389,7 +397,6 @@ def handle_client(client):  # Takes client socket as argument.
 
             #
             except Exception as e:
-                raise e
                 send_error(client, errtype="Server Error", data=str(e))
 
 
