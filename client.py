@@ -63,7 +63,7 @@ if __name__ == '__main__':
     sock.connect((ip, port))
     recv_thread = Thread(target=lambda: recv_data(sock))
     recv_thread.start()
-    recv_thread = Thread(target=lambda: send_data(sock))
-    recv_thread.start()
-    recv_thread.join()
+    send_thread = Thread(target=lambda: send_data(sock))
+    send_thread.start()
+    send_thread.join()
 
