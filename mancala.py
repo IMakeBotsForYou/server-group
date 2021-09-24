@@ -18,7 +18,7 @@ def flip_board(board):
     return side2+side1
 
 
-class Mankala:
+class Mancala:
     def __init__(self, id, board=None):
         """
         Indexes 0, 7 are the goals.
