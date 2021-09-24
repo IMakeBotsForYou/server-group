@@ -24,7 +24,10 @@ game_logs = {
 
 def end_game(game_id):
     game = games[game_id]["game"]
+    users = [clients[client]["name"] for client in games[game_id]["uses"]]
     winner = game.winner
+    for move in game.log:
+        game.log[move]["user"] = users[game.log[move]["user"]]
     first_p = {
         "type": "Game Over",
         "won": winner == 0,
@@ -45,6 +48,8 @@ def end_game(game_id):
         send(p2, second_p)
     except Exception as e:
         print(e)
+
+# Change USER 1 / USER 2 to the names of the users in the logs
 
 
 def send(client, obj):
