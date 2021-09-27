@@ -1,6 +1,6 @@
 """Server for multi-threaded (asynchronous) chat application."""
-import mankala
-from mankala import Mankala as Game
+import mancala
+from mancala import Mancala as Game
 
 from helper_functions import *
 
