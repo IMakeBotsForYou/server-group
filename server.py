@@ -60,7 +60,7 @@ def send(client, obj):
 
 def send_board_update(game_id):
     board = games[game_id]["game"].board
-    flipped_board = mankala.flip_board(board)
+    flipped_board = mancala.flip_board(board)
     current_turn = games[game_id]["game"].current_player
 
     first_p = {
