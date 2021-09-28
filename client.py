@@ -58,7 +58,7 @@ def recv_data(server):
 
 if __name__ == '__main__':
     sock = socket(AF_INET, SOCK_STREAM)
-    ip = "10.0.0.12"
+    ip = "localhost"
     port = int(open("port.txt").read())
     sock.connect((ip, port))
     recv_thread = Thread(target=lambda: recv_data(sock))

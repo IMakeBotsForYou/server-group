@@ -1,5 +1,6 @@
 """Server for multi-threaded (asynchronous) chat application."""
 import mancala
+import _thread
 from mancala import Mancala as Game
 
 from helper_functions import *
@@ -20,7 +21,6 @@ games = {
 game_logs = {
 
 }
-
 
 def end_game(game_id):
     game = games[game_id]["game"]
@@ -58,22 +58,38 @@ def send(client, obj):
     client.send(data)
 
 
+def inactivity_func(time_to_respond, client):
+    start_time = time.time()
+    time.sleep(time_to_respond)
+    if(clients[client]["last_response"] > start_time):
+        # Good
+        return
+    else:
+        # the user didn't answer
+        kick_from_game(client, f"Received no response for {time_to_respond} secoonds. "
+            f"Kicked for inactivity.")
+        return
+
+
 def send_board_update(game_id):
     board = games[game_id]["game"].board
     flipped_board = mancala.flip_board(board)
-    current_turn = games[game_id]["game"].current_player
+    current_player = games[game_id]["game"].current_player
 
     first_p = {
         "type": "Board Update",
         "board": board,
-        "your turn": current_turn == 0
+        "your turn": current_player == 0
     }
     second_p = {
         "type": "Board Update",
         "board": flipped_board,
-        "your turn": current_turn == 1
+        "your turn": current_player == 1
     }
 
+    # open timeout thread for the user that needs to answer
+    _thread.start_new_thread(inactivity_func, (params["timeout"], games[game_id]["users"][current_player]))
+    # TODO add an option for no countdown
     try:
         p1 = games[game_id]["users"][0]
         send(p1, first_p)
@@ -172,14 +188,14 @@ def accept_incoming_connections():
         Thread(target=handle_client, args=(client,), daemon=True).start()
         print(f"Starting thread for {client_address}")
 
-
+"""
 def inactivity_check(client):
-    """
+
     Checks the time between the user's last message and now,
     if over the specified time, send a message.
     :param client: client being checked
     :return: None
-    """
+
     current_time = int(time.time())
     try:
         if current_time - clients[client]["last_response"] > params["timeout"]:
@@ -201,15 +217,14 @@ def inactivity_check(client):
     except KeyError:
         # If there's an error then stop looping this
         return "stop"
-
+"""
 
 def kick_from_game(client, message=None):
     in_game = clients[client]["current game"]
     if in_game is None:
         raise AttributeError("Cannot kick a user from a game if they're not in one.")
     else:
-        """ Do we show the log to both users?
-        """
+        # Do we show the log to both users?
 
         name = clients[client]["name"]
 
@@ -286,7 +301,7 @@ def handle_client(client):  # Takes client socket as argument.
                                "loses": 0
                            },
                            "current game": None,
-                           "ping_function": call_repeatedly(params["timeout"]*0.5, inactivity_check, client)}
+                           }# TODO "ping_function": call_repeatedly(params["timeout"]*0.5, inactivity_check, client)}  # TODO hyper parameter gets multiplied by 0.5?
 
         if params["matchmaking mode"] == "queue":
             queue.append(client)
@@ -319,7 +334,7 @@ def handle_client(client):  # Takes client socket as argument.
                                            data=f"You have successfully initialized a game with id {params['game_id']-1}",
                                            additional_args={"game_id": params['game_id']-1})
 
-                    #
+                    # TODO Uriiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii here you can add the tournament match_making
                     if msg_type == "Restart Game":
                         if clients[client]["current game"] is not None:
                             game_id = clients[client]["current game"]
