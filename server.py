@@ -10,7 +10,7 @@ params = {
     "game_id": 0,
     "verbose": True,
     "serverup": True,
-    "timeout": 2,  # 5 seconds,
+    "timeout": 5,  # 5 seconds,
     "matchmaking mode": "lobbies"
 }
 queue = []
@@ -71,13 +71,16 @@ def send(client, obj):
 
 
 def inactivity_func(time_to_respond, client):
-    print("started inactivity func")
+    print("in inactivity func")
     start_time = time.time()
     time.sleep(time_to_respond)
-    if clients[client]["last_response"] <= start_time:
+    if clients[client]["last_response"] > start_time:
         # the user didn't answer
-        kick_from_game(client, f"Received no response for {time_to_respond} seconds. "
+        try:
+            kick_from_game(client, f"Received no response for {time_to_respond} seconds. "
                                f"Kicked for inactivity.")
+        except Exception as e:
+            print(e)
         return  # ?
 
 
@@ -98,7 +101,6 @@ def send_board_update(game_id):
     }
 
     # open timeout thread for the user that needs to answer
-    print("wha")
     _thread.start_new_thread(inactivity_func, (params["timeout"], games[game_id]["users"][current_player]))
     # TODO add an option for no countdown
 
@@ -254,8 +256,12 @@ def inactivity_check(client):
 
 def kick_from_game(client, message=None):
     in_game = clients[client]["current_game"]
+    print(f"game over: {games[in_game]['game'].game_over}")
     if in_game is None:
         raise AttributeError("Cannot kick a user from a game if they're not in one.")
+    elif games[in_game]["game"].game_over:
+        # if the user was found inactive but the game is over just ignore it
+        return
     else:
         """ Do we show the log to both users?
         """
