@@ -323,7 +323,7 @@ def handle_client(client):  # Takes client socket as argument.
                                        data=f"You have successfully initialized a game with id {params['game_id'] - 1}",
                                        additional_args={"game_id": params['game_id'] - 1})
 
-                # TODO Uriiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii here you can add the tournament match_making
+                # TODO Uriiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii here you can add the tournament match_making
                 if msg_type == "Restart Game":
                     if clients[client]["current_game"] is not None:
                         game_id = clients[client]["current_game"]
