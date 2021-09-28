@@ -1,9 +1,11 @@
 import random
+import time
 
 from helper_functions import *
 
 
 def move(server):
+    time.sleep(100)
     server.send(
         json.dumps({
             "type": "Game Move",
@@ -32,12 +34,12 @@ def recv_data(server):
         print(server.recv(1024*10, MSG_PEEK))
         msg_length = int(server.recv(5))
         data = json.loads(server.recv(msg_length))
-        if data["type"] == "board update":
+        if data["type"] == "Board Update":
             if data["your turn"]:
                 move(server)
             print(data["board"])
 
-        elif data["type"] == "error":
+        elif data["type"] == "Error":
 
             if data["errtype"] == "Invalid Name":
                 print(data["data"])
@@ -58,7 +60,7 @@ def recv_data(server):
 
 if __name__ == '__main__':
     sock = socket(AF_INET, SOCK_STREAM)
-    ip = "10.0.0.12"
+    ip = "localhost"
     port = int(open("port.txt").read())
     sock.connect((ip, port))
     recv_thread = Thread(target=lambda: recv_data(sock))
