@@ -5,7 +5,7 @@ from helper_functions import *
 
 
 def move(server):
-    time.sleep(10)
+    time.sleep(100)
     server.send(
         json.dumps({
             "type": "Game Move",

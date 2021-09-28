@@ -71,10 +71,11 @@ def send(client, obj):
 
 
 def inactivity_func(time_to_respond, client):
-    print("in inactivity func")
     start_time = time.time()
     time.sleep(time_to_respond)
-    if clients[client]["last_response"] > start_time:
+    print(f"last_respons: {clients[client]['last_response']}")
+    print(f"start_time: {start_time}")
+    if clients[client]["last_response"] <= start_time:
         # the user didn't answer
         try:
             kick_from_game(client, f"Received no response for {time_to_respond} seconds. "
