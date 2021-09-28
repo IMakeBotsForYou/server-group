@@ -29,17 +29,10 @@ def end_game(game_id):
     winner = game.winner
 
     for move in game.log:
-        """
-        [FIX]
-        This part had "user" instead of "player". idk why, guess i was tired.
-        also the try catch just made it so i didn't see this error straight away
-        """
-        # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
         if game.log[move]["move"] != "Surrender":
             # The player is already updated. So this is unneeded and will cause an error.
 
             game.log[move]["player"] = users[game.log[move]["player"]]
-        # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
     first_p = {
         "type": "Game Over",
@@ -73,16 +66,13 @@ def send(client, obj):
 def inactivity_func(time_to_respond, client):
     start_time = time.time()
     time.sleep(time_to_respond)
-    print(f"last_respons: {clients[client]['last_response']}")
-    print(f"start_time: {start_time}")
     if clients[client]["last_response"] <= start_time:
         # the user didn't answer
         try:
             kick_from_game(client, f"Received no response for {time_to_respond} seconds. "
                                f"Kicked for inactivity.")
-        except Exception as e:
+        except AttributeError as e:  # catches the error that it cannot kick a user from a game if it is not in one
             print(e)
-        return  # ?
 
 
 def send_board_update(game_id):
@@ -207,85 +197,19 @@ def accept_incoming_connections():
         print(f"Starting thread for {client_address}")
 
 
-"""
-def inactivity_check(client):
-    Checks the time between the user's last message and now,
-    if over the specified time, send a message.
-    :param client: client being checked
-    :return: None
-    current_time = int(time.time())
-    try:
-        if current_time - clients[client]["last response"] > params["timeout"]:
-            if clients[client]["current_game"] is None:
-                # reset timeout counter
-                clients[client]["last response"] = int(time.time())
-            else:
-                # The user is in a game.
-                # Is it a game in progress?
-                game_id = clients[client]["current_game"]
-                if games[game_id]["game"].game_over or len(games[game_id]["users"]) < 2:
-                    # reset timeout counter
-                    clients[client]["last response"] = int(time.time())
-                else:
-                    # The user is inactive during a game.
-                    # is it their turn? the user user might be hogging their turn.
-
-                    index_in_lobby = games[game_id]["users"].index(client)
-                    [FIX]
-                    Another problem I found is that if a user takes too long to respond,
-                    for example 5 seconds; It will also kick the second user, obviously since
-                    they aren't responding. 
-                    To fix this, we now check if it is the current users turn. If not, we 
-                    reset the LAST RESPONSE variable.
-                    if games[game_id]["game"].current_player != index_in_lobby:
-                        # reset counter
-                        clients[client]["last response"] = int(time.time())
-                    else:
-                        kick_from_game(client,
-                                       message=f"Received no response for {params['timeout']}s. "
-                                               f"Kicked for inactivity.")
-
-    except KeyError:
-        # If there's an error then stop looping this
-        [FIX]
-        Added this print, to know when this happens.
-        Apparently the stop loop thing doesnt work? i'm not sure.
-        print(f"There was an error with the inactivity check function for {clients[client]['name']}")
-        return "stop"
-"""
-
-
 def kick_from_game(client, message=None):
     in_game = clients[client]["current_game"]
     print(f"game over: {games[in_game]['game'].game_over}")
     if in_game is None:
         raise AttributeError("Cannot kick a user from a game if they're not in one.")
-    elif games[in_game]["game"].game_over:
-        # if the user was found inactive but the game is over just ignore it
-        return
-    else:
-        """ Do we show the log to both users?
-        """
+    elif not games[in_game]["game"].game_over:
+        # if the user is in a game
+
         clients[client]["current_game"] = None
         name = clients[client]["name"]
 
         players = games[in_game]["users"]
 
-        """
-        [FIX]
-        This is less of a fix, and more of a fix-up.
-        Before, the log_event function would log an event with the label 'Surrender'
-        This could be inconvenient, since all the other events are marked
-        with a number (the turn number).
-        Now, it will input the event in the correct format ↓
-        
-        self.log[self.move_number] = {
-            "player": int/str,
-            "move": int/str,
-            "special event": str
-        }
-        
-        """
         events_so_far = len(games[in_game]["game"].log)
         games[in_game]["game"].log_event(events_so_far,
                                          {
@@ -361,7 +285,6 @@ def handle_client(client):  # Takes client socket as argument.
                                "loses": 0
                            },
                            "current_game": None}
-        # "ping function": call_repeatedly(params["timeout"]*0.5, inactivity_check, client)}
 
         if params["matchmaking mode"] == "queue":
             queue.append(client)
@@ -469,7 +392,6 @@ def handle_client(client):  # Takes client socket as argument.
                     continue
 
                 """
-                [FIX]
                 Regarding the fix below, this IF statement should take care of it.
                 But you can never be too sure.
                 """
@@ -490,7 +412,6 @@ def handle_client(client):  # Takes client socket as argument.
                     end_game(clients[client]["current_game"])
                 except KeyError:
                     """
-                    [FIX] ?
                     Also, if the client would send {Game Move} messages while not in a game,
                     or after being kicked, it would give a KeyError for 
                     games[clients[client]["current_game"]]["game"]
