@@ -142,7 +142,7 @@ def join_game(game_id, user_socket):
         raise KeyError("Invalid game ID")
     if len(games[game_id]["users"]) == 1:
         games[game_id]["users"].append(user_socket)
-        clients[user_socket]["current game"] = game_id
+        clients[user_socket]["current_game"] = game_id
         send_board_update(game_id)
     else:
         a, b = [clients[x]["name"] for x in games[game_id]["users"]]
@@ -155,7 +155,7 @@ def initialize_game(host):
         "game": Game(game_id),
         "users": [host]
     }
-    clients[host]["current game"] = game_id
+    clients[host]["current_game"] = game_id
     params["game_id"] += 1
 
 
@@ -167,8 +167,8 @@ def matchmaking():
 
             # get first 2 users in queue
             users = queue.pop(0), queue.pop(0)
-            clients[users[0]]["current game"] = idnum
-            clients[users[1]]["current game"] = idnum
+            clients[users[0]]["current_game"] = idnum
+            clients[users[1]]["current_game"] = idnum
             # create game and save it in the games dictionary
             games[idnum] = {
                 "game": Game(idnum),
@@ -213,13 +213,13 @@ def inactivity_check(client):
     current_time = int(time.time())
     try:
         if current_time - clients[client]["last response"] > params["timeout"]:
-            if clients[client]["current game"] is None:
+            if clients[client]["current_game"] is None:
                 # reset timeout counter
                 clients[client]["last response"] = int(time.time())
             else:
                 # The user is in a game.
                 # Is it a game in progress?
-                game_id = clients[client]["current game"]
+                game_id = clients[client]["current_game"]
                 if games[game_id]["game"].game_over or len(games[game_id]["users"]) < 2:
                     # reset timeout counter
                     clients[client]["last response"] = int(time.time())
@@ -253,13 +253,13 @@ def inactivity_check(client):
 
 
 def kick_from_game(client, message=None):
-    in_game = clients[client]["current game"]
+    in_game = clients[client]["current_game"]
     if in_game is None:
         raise AttributeError("Cannot kick a user from a game if they're not in one.")
     else:
         """ Do we show the log to both users?
         """
-        clients[client]["current game"] = None
+        clients[client]["current_game"] = None
         name = clients[client]["name"]
 
         players = games[in_game]["users"]
@@ -348,12 +348,12 @@ def handle_client(client):  # Takes client socket as argument.
         pass
     else:
         clients[client] = {"name": name,
-                           "last response": time.time(),
+                           "last_response": time.time(),
                            "games": {
                                "wins": 0,
                                "loses": 0
                            },
-                           "current game": None}
+                           "current_game": None}
         # "ping function": call_repeatedly(params["timeout"]*0.5, inactivity_check, client)}
 
         if params["matchmaking mode"] == "queue":
@@ -380,11 +380,11 @@ def handle_client(client):  # Takes client socket as argument.
 
             # At this point we may assume that we recieved a valid message from the user.
 
-            clients[client]["last response"] = time.time()
+            clients[client]["last_response"] = time.time()
 
             if params["matchmaking mode"] == "lobbies":
                 if msg_type == "Start Game":
-                    if clients[client]["current game"]:
+                    if clients[client]["current_game"]:
                         send_error(errtype="Bad Request",
                                    data="You are already in a lobby. To create a new one leave your current one.")
                     else:
@@ -395,8 +395,8 @@ def handle_client(client):  # Takes client socket as argument.
 
                 # TODO Uriiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii here you can add the tournament match_making
                 if msg_type == "Restart Game":
-                    if clients[client]["current game"] is not None:
-                        game_id = clients[client]["current game"]
+                    if clients[client]["current_game"] is not None:
+                        game_id = clients[client]["current_game"]
                         # if user is the owner of the game:
                         # if client != games[game_id]["users"][0]:
                         #     send_error(client, errtype="Permission Error",
@@ -444,7 +444,7 @@ def handle_client(client):  # Takes client socket as argument.
 
                 #
                 if msg_type == "Quit Game":
-                    in_game = clients[client]["current game"]
+                    in_game = clients[client]["current_game"]
                     try:
                         kick_from_game(client)
                     except AttributeError:
@@ -466,10 +466,10 @@ def handle_client(client):  # Takes client socket as argument.
                 Regarding the fix below, this IF statement should take care of it.
                 But you can never be too sure.
                 """
-                if clients[client]["current game"] is None:
+                if clients[client]["current_game"] is None:
                     continue
                 try:
-                    games[clients[client]["current game"]]["game"].make_move(play_index, adjust_index=True)
+                    games[clients[client]["current_game"]]["game"].make_move(play_index, adjust_index=True)
                 except ValueError:
                     send_error(client, "You've made an invalid move. It is still your turn.",
                                errtype="Invalid Move")
@@ -480,18 +480,18 @@ def handle_client(client):  # Takes client socket as argument.
                     send_error(client, "Moves have to be ints. It is still your turn.", errtype="Invalid Move")
                 except AttributeError:
                     # Someone won
-                    end_game(clients[client]["current game"])
+                    end_game(clients[client]["current_game"])
                 except KeyError:
                     """
                     [FIX] ?
                     Also, if the client would send {Game Move} messages while not in a game,
                     or after being kicked, it would give a KeyError for 
-                    games[clients[client]["current game"]]["game"]
+                    games[clients[client]["current_game"]]["game"]
                     This is now handled. 
                     """
                     send_error(client, "Something went wrong.", errtype="Invalid Move")
                 else:
-                    send_board_update(clients[client]["current game"])
+                    send_board_update(clients[client]["current_game"])
 
             #
             # except Exception as e:
