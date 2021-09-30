@@ -70,8 +70,8 @@ def inactivity_func(time_to_respond, client):
         # the user didn't answer
         try:
             kick_from_game(client, f"Received no response for {time_to_respond} seconds. "
-                               f"Kicked for inactivity.")
-        except AttributeError as e:  # catches the error that it cannot kick a user from a game if it is not in one
+                                   f"Kicked for inactivity.")
+        except AttributeError as e:  # Cannot kick a user from a game if it is not in one
             print(e)
 
 
@@ -139,7 +139,7 @@ def join_game(game_id, user_socket):
         send_board_update(game_id)
     else:
         a, b = [clients[x]["name"] for x in games[game_id]["users"]]
-        raise IndexError(f"This game has already began, between {a} and {b}")
+        raise IndexError(f"This lobby is full. {a} and {b}")
 
 
 def initialize_game(host):
@@ -234,6 +234,49 @@ def kick_from_game(client, message=None):
         print(f"{name} has been kicked from lobby #{in_game}")
 
 
+def validate_user_message(client, data):
+    message_types = ["Login", "Game Move", "Quit Game", "Join Game", "Start Game", "Restart Game"]
+    try:
+        data = json.loads(data)
+    except json.decoder.JSONDecodeError:
+        send_error(client, errtype="Bad Message", data="JSON Parse Failure.")
+        return False
+    try:
+        msg_type = data["type"]
+        assert msg_type in message_types
+    except KeyError:
+        send_error(client, errtype="Bad Message", data="No message type.")
+        return False
+    except AssertionError:
+        send_error(client, errtype="Bad Message",
+                   data=f'Message type must be one of {", ".join(message_types)}')
+        return False
+
+    if msg_type == "Game Move":
+        try:
+            index = data["index"]
+            assert isinstance(index, int)
+        except KeyError:
+            send_error(client, errtype="Bad Message", data="'index' field missing in Game Move message")
+            return False
+        except AssertionError:
+            send_error(client, errtype="Bad Message", data="'index' field must be int.")
+            return False
+
+    if msg_type == "Join Game":
+        try:
+            game_id = data["game_id"]
+            assert isinstance(game_id, int)
+        except KeyError:
+            send_error(client, errtype="Bad Message", data="'game id' field missing in Join Game message")
+            return False
+        except AssertionError:
+            send_error(client, errtype="Bad Message", data="'game id' field must be int.")
+            return False
+
+    return True
+
+
 def handle_client(client):  # Takes client socket as argument.
     """
     Handles a single client connection.
@@ -297,25 +340,22 @@ def handle_client(client):  # Takes client socket as argument.
             here we get data from the client
             '''
             print(client.recv(1024, MSG_PEEK))
-            try:
-                data = json.loads(client.recv(1024))
-            except json.decoder.JSONDecodeError:
-                send_error(client, errtype="Bad Message", data="JSON Parse Failure.")
-                continue
-            try:
-                msg_type = data["type"]
-            except KeyError:
-                send_error(client, errtype="Bad Message", data="No message type.")
+            unparsed = client.recv(1024)
+            valid = validate_user_message(client, unparsed)
+            # At this point we may assume that we recieved a valid message from the user.
+
+            if not valid:
                 continue
 
-            # At this point we may assume that we recieved a valid message from the user.
+            data = json.loads(unparsed)
+            msg_type = data["type"]
 
             clients[client]["last_response"] = time.time()
 
             if params["matchmaking mode"] == "lobbies":
                 if msg_type == "Start Game":
                     if clients[client]["current_game"]:
-                        send_error(errtype="Bad Request",
+                        send_error(client, errtype="Bad Request",
                                    data="You are already in a lobby. To create a new one leave your current one.")
                     else:
                         initialize_game(client)
@@ -349,28 +389,24 @@ def handle_client(client):  # Takes client socket as argument.
 
                 #
                 if msg_type == "Join Game":
+                    game_id = data["game_id"]
                     try:
-                        game_id = data["game_id"]
+                        join_game(game_id, client)
+                    except IndexError:
+                        send_error(client, errtype="Join Error",
+                                   data=f"Game #{game_id} is full.")
                     except KeyError:
-                        send_error(client, errtype="Bad Message", data="'game id' field missing in Join Game message")
+                        send_error(client, errtype="Join Error",
+                                   data=f"#{game_id} is an invalid game ID.")
                     else:
-                        try:
-                            join_game(game_id, client)
-                        except IndexError:
-                            send_error(client, errtype="Join Error",
-                                       data=f"Game #{game_id} is full.")
-                        except KeyError:
-                            send_error(client, errtype="Join Error",
-                                       data=f"#{game_id} is an invalid game ID.")
-                        else:
-                            opponent_socket = games[game_id]["users"][0]
-                            opponent_name = clients[opponent_socket]["name"]
-                            simple_message(client, msgtype="Success",
-                                           data=f"You have successfully joined game #{game_id}, "
-                                                f"your opponent is {opponent_name}")
+                        opponent_socket = games[game_id]["users"][0]
+                        opponent_name = clients[opponent_socket]["name"]
+                        simple_message(client, msgtype="Success",
+                                       data=f"You have successfully joined game #{game_id}, "
+                                            f"your opponent is {opponent_name}")
 
-                            simple_message(opponent_socket, msgtype="Notification",
-                                           data=f"{name} has joined your Lobby.")
+                        simple_message(opponent_socket, msgtype="Notification",
+                                       data=f"{name} has joined your Lobby.")
 
                 #
                 if msg_type == "Quit Game":
@@ -385,16 +421,7 @@ def handle_client(client):  # Takes client socket as argument.
 
             #
             if msg_type == "Game Move":
-                try:
-                    play_index = data["index"]
-                except KeyError:
-                    send_error(client, errtype="Bad Message", data="'game id' field missing in Join Game message")
-                    continue
-
-                """
-                Regarding the fix below, this IF statement should take care of it.
-                But you can never be too sure.
-                """
+                play_index = data["index"]
                 if clients[client]["current_game"] is None:
                     continue
                 try:
@@ -412,7 +439,7 @@ def handle_client(client):  # Takes client socket as argument.
                     end_game(clients[client]["current_game"])
                 except KeyError:
                     """
-                    Also, if the client would send {Game Move} messages while not in a game,
+                    If the client would send {Game Move} messages while not in a game,
                     or after being kicked, it would give a KeyError for 
                     games[clients[client]["current_game"]]["game"]
                     This is now handled. 

@@ -5,11 +5,11 @@ from helper_functions import *
 
 
 def move(server):
-    time.sleep(100)
+    # random.randint(1, 6)
     server.send(
         json.dumps({
             "type": "Game Move",
-            "index": random.randint(1, 6)
+            "index": input("Move >")
         }).encode()
     )
 
