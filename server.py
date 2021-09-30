@@ -286,41 +286,30 @@ def handle_client(client):  # Takes client socket as argument.
     """
     try:
         simple_message(client, msgtype="Welcome", data="Choose a name!")
-
+        name = client.recv(1024).decode()
         # if there's any keywords we want to ban
         # this might be useful if we have reserved keywords for system functions, like @ or !
         banned_words = ["join", "create"]
-        valid_name = False
+        names = [x["name"] for x in clients.values()]
 
-        while not valid_name:
-            name = ""
-            data = client.recv(1024)
-            try:
-                name = json.loads(data)["name"]
-            except (json.decoder.JSONDecodeError, KeyError):
-                expected = {"type": "Login", "name": "your_name:str"}
-                send_error(client, errtype="Invalid login Attempt",
-                           data=f'Expected syntax: {json.dumps(expected, indent=2)}')
-                continue
-
-            names = [x["name"] for x in clients.values()]
-
-            banned_words_used = [key_word for key_word in banned_words if name.lower().find(key_word) != -1]
-            banned_words_used += [x for x in names if name == x]
+        banned_words_used = [key_word for key_word in banned_words if name.find(key_word) != -1]
+        banned_words_used += [x for x in names if name == x]
+        while len(banned_words_used) != 0 or (len(name) > 32 or len(name) < 3):
 
             if len(name) > 32 or len(name) < 3:
-                send_error(client, data="Name must be between 3-32 characters", errtype="Invalid Login Attempt")
-            elif len(banned_words_used) != 0:
-                send_error(client, data=f"Invalid nickname. Unavailable key words used: {banned_words_used}", errtype="Invalid Login Attempt")
+                data = "Name must be between 3-32 characters"
             else:
-                valid_name = True
+                data = f"Invalid nickname. Unavailable key words used: {banned_words_used}"
 
-            print(f"Login attempt {name} by {addresses[client]}")
-            # name = client.recv(50).decode()
-            # banned_words_used = [key_word for key_word in banned_words if name.find(key_word) != -1]
-            # banned_words_used += [x for x in names if name == x]
+            send_error(client, data, errtype="Invalid Name")
 
+            if name:
+                print(f"Illegal login attempt: {name} || {banned_words_used}")
+            name = client.recv(50).decode()
+            banned_words_used = [key_word for key_word in banned_words if name.find(key_word) != -1]
+            banned_words_used += [x for x in names if name == x]
         print(f"{client}\n has registered as {name}")
+
 
     except ConnectionResetError:  # 10054
         print("Client error'd out.")
