@@ -180,7 +180,7 @@ class Mancala:
             special = "Extra Move"
         if rule_3:
             special = "Rule 3, steal."
-        elif self.game_over:
+        if self.game_over:
             if self.winner == 2:
                 special += "Draw."
             else:
