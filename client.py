@@ -5,7 +5,7 @@ from helper_functions import *
 
 
 def move(server):
-    time.sleep(100)
+    #time.sleep(10)
     server.send(
         json.dumps({
             "type": "Game Move",
@@ -18,7 +18,7 @@ def send_data(server):
     while 1:
         command = input("> ").lower()
         if command in ["start", "create"]:
-            server.send(json.dumps({"type": "Start Game"}).encode())
+            server.send(json.dumps({"type": "Start Game", "slow_game": False}).encode())
         elif command in ["restart", "reset"]:
             server.send(json.dumps({"type": "Restart Game"}).encode())
         elif command == "join":

@@ -92,8 +92,8 @@ def send_board_update(game_id):
     }
 
     # open timeout thread for the user that needs to answer
-    _thread.start_new_thread(inactivity_func, (params["timeout"], games[game_id]["users"][current_player]))
-    # TODO add an option for no countdown
+    if not games[game_id]["slow_game"]:
+        _thread.start_new_thread(inactivity_func, (params["timeout"], games[game_id]["users"][current_player]))
 
     try:
         p1 = games[game_id]["users"][0]
@@ -142,11 +142,12 @@ def join_game(game_id, user_socket):
         raise IndexError(f"This game has already began, between {a} and {b}")
 
 
-def initialize_game(host):
+def initialize_game(host, is_slow_game = False):
     game_id = params["game_id"]
     games[game_id] = {
         "game": Game(game_id),
-        "users": [host]
+        "users": [host],
+        "slow_game": is_slow_game
     }
     clients[host]["current_game"] = game_id
     params["game_id"] += 1
@@ -308,7 +309,7 @@ def handle_client(client):  # Takes client socket as argument.
                 send_error(client, errtype="Bad Message", data="No message type.")
                 continue
 
-            # At this point we may assume that we recieved a valid message from the user.
+            # At this point we may assume that we received a valid message from the user.
 
             clients[client]["last_response"] = time.time()
 
@@ -318,8 +319,14 @@ def handle_client(client):  # Takes client socket as argument.
                         send_error(errtype="Bad Request",
                                    data="You are already in a lobby. To create a new one leave your current one.")
                     else:
-                        initialize_game(client)
-                        simple_message(client, msgtype="Success",
+                        if "slow_game" in data:
+                            initialize_game(client, data["slow_game"])
+                            simple_message(client, msgtype="Success",
+                                           data=f"You have successfully initialized a game with id {params['game_id'] - 1}, the game doesn't have time response limit",
+                                           additional_args={"game_id": params['game_id'] - 1})
+                        else:
+                            initialize_game(client)
+                            simple_message(client, msgtype="Success",
                                        data=f"You have successfully initialized a game with id {params['game_id'] - 1}",
                                        additional_args={"game_id": params['game_id'] - 1})
 
