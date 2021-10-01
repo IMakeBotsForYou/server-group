@@ -5,7 +5,7 @@ from helper_functions import *
 
 
 def move(server):
-    time.sleep(1)
+    #time.sleep(10)
     server.send(
         json.dumps({
             "type": "Game Move",
@@ -18,15 +18,15 @@ def send_data(server):
     while 1:
         command = input("> ").lower()
         if command in ["start", "create"]:
-            server.send(json.dumps({"type": "Start Game"}).encode())
+            server.send(json.dumps({"type": "Start Game", "slow_game": False}).encode())
         elif command in ["restart", "reset"]:
             server.send(json.dumps({"type": "Restart Game"}).encode())
         elif command == "join":
             server.send(json.dumps({"type": "Join Game", "game_id": int(input("ID > "))}).encode())
         elif command in ["quit", "leave"]:
             server.send(json.dumps({"type": "Quit Game"}).encode())
-        elif command in ["login", "name"]:
-            server.send(json.dumps({"type": "Login", "name": input("Login > ")}).encode())
+        else:
+            server.send(command.encode())
 
 
 def recv_data(server):
@@ -34,7 +34,6 @@ def recv_data(server):
         print(server.recv(1024*10, MSG_PEEK))
         msg_length = int(server.recv(5))
         data = json.loads(server.recv(msg_length))
-
         if data["type"] == "Board Update":
             if data["your turn"]:
                 move(server)

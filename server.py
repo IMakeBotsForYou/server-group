@@ -10,7 +10,7 @@ params = {
     "game_id": 0,
     "verbose": True,
     "serverup": True,
-    "timeout": 1000,  # 5 seconds,
+    "timeout": 5,  # 5 seconds,
     "matchmaking mode": "lobbies"
 }
 queue = []
@@ -71,7 +71,7 @@ def inactivity_func(time_to_respond, client):
         try:
             kick_from_game(client, f"Received no response for {time_to_respond} seconds. "
                                    f"Kicked for inactivity.")
-        except AttributeError as e:  # Cannot kick a user from a game if it is not in one
+        except AttributeError as e:  # catches the error that it cannot kick a user from a game if it is not in one
             print(e)
 
 
@@ -92,8 +92,8 @@ def send_board_update(game_id):
     }
 
     # open timeout thread for the user that needs to answer
-    _thread.start_new_thread(inactivity_func, (params["timeout"], games[game_id]["users"][current_player]))
-    # TODO add an option for no countdown
+    if not games[game_id]["slow_game"]:
+        _thread.start_new_thread(inactivity_func, (params["timeout"], games[game_id]["users"][current_player]))
 
     try:
         p1 = games[game_id]["users"][0]
@@ -139,14 +139,15 @@ def join_game(game_id, user_socket):
         send_board_update(game_id)
     else:
         a, b = [clients[x]["name"] for x in games[game_id]["users"]]
-        raise IndexError(f"This lobby is full. {a} and {b}")
+        raise IndexError(f"This game has already began, between {a} and {b}")
 
 
-def initialize_game(host):
+def initialize_game(host, is_slow_game = False):
     game_id = params["game_id"]
     games[game_id] = {
         "game": Game(game_id),
-        "users": [host]
+        "users": [host],
+        "slow_game": is_slow_game
     }
     clients[host]["current_game"] = game_id
     params["game_id"] += 1
@@ -245,7 +246,7 @@ def validate_user_message(client, data):
         msg_type = data["type"]
         assert msg_type in message_types
     except KeyError:
-        send_error(client, errtype="Bad Message", data="No message type.")
+        send_error(client, errtype="Bad Message", data="No valid message type.")
         return False
     except AssertionError:
         send_error(client, errtype="Bad Message",
@@ -343,13 +344,12 @@ def handle_client(client):  # Takes client socket as argument.
             print(client.recv(1024, MSG_PEEK))
             unparsed = client.recv(1024)
             valid = validate_user_message(client, unparsed)
-            # At this point we may assume that we recieved a valid message from the user.
 
             if not valid:
                 continue
 
             data = json.loads(unparsed)
-            msg_type = data["type"]
+            # At this point we may assume that we received a valid message from the user.
 
             clients[client]["last_response"] = time.time()
 
@@ -359,8 +359,14 @@ def handle_client(client):  # Takes client socket as argument.
                         send_error(client, errtype="Bad Request",
                                    data="You are already in a lobby. To create a new one leave your current one.")
                     else:
-                        initialize_game(client)
-                        simple_message(client, msgtype="Success",
+                        if "slow_game" in data:
+                            initialize_game(client, data["slow_game"])
+                            simple_message(client, msgtype="Success",
+                                           data=f"You have successfully initialized a game with id {params['game_id'] - 1}, the game doesn't have a time response limit",
+                                           additional_args={"game_id": params['game_id'] - 1})
+                        else:
+                            initialize_game(client)
+                            simple_message(client, msgtype="Success",
                                        data=f"You have successfully initialized a game with id {params['game_id'] - 1}",
                                        additional_args={"game_id": params['game_id'] - 1})
 
