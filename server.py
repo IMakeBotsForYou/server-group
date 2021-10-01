@@ -311,7 +311,6 @@ def handle_client(client):  # Takes client socket as argument.
             banned_words_used += [x for x in names if name == x]
         print(f"{client}\n has registered as {name}")
 
-
     except ConnectionResetError:  # 10054
         print("Client error'd out.")
         del addresses[client]
