@@ -299,29 +299,22 @@ def handle_client(client):  # Takes client socket as argument.
     and commands only the user can see.
     """
     try:
-        simple_message(client, msgtype="Welcome", data="Choose a name!")
-        name = client.recv(1024).decode()
-        # if there's any keywords we want to ban
-        # this might be useful if we have reserved keywords for system functions, like @ or !
-        banned_words = ["join", "create"]
-        names = [x["name"] for x in clients.values()]
+        taken_names = [x["name"] for x in clients.values()]
+        simple_message(client, msgtype="Welcome", data="Choose a name!",additional_args={"Taken names":taken_names})
+        unparsed = client.recv(1024).decode()
+        
+        # ask for name until you recieve a valid message
+        while True:
+            while not validate_user_message(client,unparsed):
+                unparsed = client.recv(1024).decode()
 
-        banned_words_used = [key_word for key_word in banned_words if name.find(key_word) != -1]
-        banned_words_used += [x for x in names if name == x]
-        while len(banned_words_used) != 0 or (len(name) > 32 or len(name) < 3):
+            message = json.loads(unparsed)
+            name = message["name"]
 
-            if len(name) > 32 or len(name) < 3:
-                data = "Name must be between 3-32 characters"
-            else:
-                data = f"Invalid nickname. Unavailable key words used: {banned_words_used}"
+            if name in taken_names:
+                send_error(client,data="This name is already taken",error_type="Invalid Name")
 
-            send_error(client, data, errtype="Invalid Name")
-
-            if name:
-                print(f"Illegal login attempt: {name} || {banned_words_used}")
-            name = client.recv(50).decode()
-            banned_words_used = [key_word for key_word in banned_words if name.find(key_word) != -1]
-            banned_words_used += [x for x in names if name == x]
+        
         print(f"{client}\n has registered as {name}")
 
     except ConnectionResetError:  # 10054
@@ -482,7 +475,7 @@ def broadcast(msg, send_to=None):
         try:
             send(sock, msg)
         except ConnectionResetError:  # 10054
-            pass
+            print("Client has disconnected")
 
 
 if __name__ == '__main__':

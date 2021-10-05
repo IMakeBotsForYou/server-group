@@ -25,6 +25,8 @@ def send_data(server):
             server.send(json.dumps({"type": "Join Game", "game_id": int(input("ID > "))}).encode())
         elif command in ["quit", "leave"]:
             server.send(json.dumps({"type": "Quit Game"}).encode())
+        elif command in ["login"]:
+            server.send(json.dumps({"type": "Login", "name":input("Name > ")}).encode())
         else:
             server.send(command.encode())
 
