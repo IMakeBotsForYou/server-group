@@ -348,6 +348,7 @@ def handle_client(client):  # Takes client socket as argument.
                 continue
 
             data = json.loads(unparsed)
+
             # At this point we may assume that we received a valid message from the user.
 
             clients[client]["last_response"] = time.time()
@@ -362,6 +363,7 @@ def handle_client(client):  # Takes client socket as argument.
                             initialize_game(client, data["slow_game"])
                             simple_message(client, msgtype="Success",
                                            data=f"You have successfully initialized a game with id {params['game_id'] - 1}, the game doesn't have a time response limit",
+
                                            additional_args={"game_id": params['game_id'] - 1})
                         else:
                             initialize_game(client)
