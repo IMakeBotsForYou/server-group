@@ -1,7 +1,8 @@
 from copy import deepcopy as copy
 
+
 def index2player(index):
-    return index//7
+    return index // 7
 
 
 def is_current_player(index, player):
@@ -9,13 +10,13 @@ def is_current_player(index, player):
 
 
 def get_matching_hole(index):
-    dist_from_bank, side = index % 7, index//7
-    return 7-dist_from_bank+(1-side)*7
+    dist_from_bank, side = index % 7, index // 7
+    return 7 - dist_from_bank + (1 - side) * 7
 
 
 def flip_board(board):
     side1, side2 = board[0:7], board[7:14]
-    return side2+side1
+    return side2 + side1
 
 
 class Mancala:
@@ -72,7 +73,7 @@ class Mancala:
         """
         # 0 -> skip 7
         # 1 -> skip 0
-        skip_bank = (1-self.current_player) * 7
+        skip_bank = (1 - self.current_player) * 7
         index -= 1
 
         if skip_bank == 0 and index == 0:
@@ -93,17 +94,17 @@ class Mancala:
             raise ValueError("Invalid Move. That is the second player's territory.")
 
         if self.board[index] == 0:
-            raise IndexError(f"Hole #{index%7} ({index}) is empty!")
+            raise IndexError(f"Hole #{index % 7} ({index}) is empty!")
 
     def empty_side(self, side):
-        for index in range(side*7+1, side*7+7):
+        for index in range(side * 7 + 1, side * 7 + 7):
             self.board[index] = 0
 
     def get_side_marbles(self, player, include_bank=False):
         add = 0
         if include_bank:
-            add = self.board[player*7]
-        return sum(self.board[player*7+1:player*7+7]) + add
+            add = self.board[player * 7]
+        return sum(self.board[player * 7 + 1:player * 7 + 7]) + add
 
     def check_win(self):
         side_a, side_b = self.get_side_marbles(0), self.get_side_marbles(1)
@@ -137,7 +138,7 @@ class Mancala:
         :return:
         """
         if adjust_index:
-            current_index += self.current_player*7
+            current_index += self.current_player * 7
 
         self.validate_move(current_index)
         save_start = current_index
@@ -160,7 +161,7 @@ class Mancala:
                 rule_3 = True
                 # move all the marbles from the matching hole to the
                 # player's bank
-                self.board[self.current_player*7] += self.board[matching_hole]
+                self.board[self.current_player * 7] += self.board[matching_hole]
                 self.board[matching_hole] = 0
 
         """ Landing in your own bank giving you another move.
@@ -184,12 +185,12 @@ class Mancala:
             if self.winner == 2:
                 special += "Draw."
             else:
-                special += f"Player {chr(ord('A')+self.winner)} won."
+                special += f"Player {chr(ord('A') + self.winner)} won."
         else:
             special = "nothing"
 
         if verbose:
-            print(f"Player {self.current_player} played {save_start%7}", end="")
+            print(f"Player {self.current_player} played {save_start % 7}", end="")
             if special != "nothing":
                 print(f", {special}")
             else:
@@ -213,7 +214,7 @@ class Mancala:
         self.current_player = int(turn % 2 == 1)
         self.board = self.history[turn]
         self.history = self.history[:turn]
-        for i in range(turn+1, len(self.log)):
+        for i in range(turn + 1, len(self.log)):
             del self.log[i]
 
     def eval_board(self):
@@ -226,4 +227,4 @@ class Mancala:
             "current board": self.board,
             "log": self.log
         }
-    
+

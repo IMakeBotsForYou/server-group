@@ -235,7 +235,7 @@ def kick_from_game(client, message=None):
         print(f"{name} has been kicked from lobby #{in_game}")
 
 
-def validate_user_message(client, data):
+def validate_user_message(client, data, has_logged_in=True):
     message_types = ["Login", "Game Move", "Quit Game", "Join Game", "Start Game", "Restart Game"]
     try:
         data = json.loads(data)
@@ -252,6 +252,19 @@ def validate_user_message(client, data):
         send_error(client, errtype="Bad Message",
                    data=f'Message type must be one of {", ".join(message_types)}')
         return False
+
+    if not has_logged_in and msg_type != "Login":
+        send_error(client, errtype="Bad Request", data="You have to be logged in first.")
+        return false
+
+    if msg_type == "Login":
+        if has_logged_in:
+            send_error(client, errtype="Bad Request", data="You are already logged in.")
+            return False
+
+        if "name" not in data:
+            send_error(client, errtype="Bad Message", data="'name' field missing in Login message")
+            return False
 
     if msg_type == "Game Move":
         try:
@@ -391,7 +404,7 @@ def handle_client(client):  # Takes client socket as argument.
                                                data="Your game has been restarted.")
                                 send_board_update(game_id)
                         else:
-                            send_error(client, errtype="Permission Error",
+                            send_error(client, errtype="Bad Request",
                                        data="Cannot reset a game in progress."
                                             "A game can only be restarted after it has ended.")
 
