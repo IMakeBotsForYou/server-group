@@ -1,7 +1,7 @@
 import random
 import time
 
-from helper_functions import *
+from imports import *
 
 
 def move(server):

@@ -2,7 +2,7 @@
 import mancala
 from mancala import Mancala as Game
 import _thread
-from helper_functions import *
+from imports import *
 
 # global parameters
 matchmaking_modes = ["lobbies", "fast_queue"]
@@ -128,6 +128,19 @@ def simple_message(user, msgtype, data, additional_args=None):
         message[arg] = additional_args[arg]
 
     send(user, message)
+
+
+def msg_len(data, length=3):
+
+    """
+    :param length: length of output string
+    :param data: The data we're getting the length of
+    :return: Length of the encoded data, left-padded to be 3 digits long.
+    """
+    try:
+        return str(len(data.encode())).zfill(length)
+    except:
+        return str(len(data)).zfill(length)  # already encoded
 
 
 def join_game(game_id, user_socket):
