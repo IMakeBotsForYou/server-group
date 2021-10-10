@@ -183,11 +183,15 @@ class Mancala:
             special = "Rule 3, steal."
         if self.game_over:
             if self.winner == 2:
-                special += "Draw."
+                special += " Draw."
             else:
-                special += f"Player {chr(ord('A') + self.winner)} won."
-        else:
+                special += f" Player {chr(ord('A') + self.winner)} won."
+        # this else statement was screwing up the entire log
+        if change_move and not rule_3 and not self.game_over:
             special = "nothing"
+
+        # in case the game is won and there's no special (special will begin with a space)
+        special = special.strip()
 
         if verbose:
             print(f"Player {self.current_player} played {save_start % 7}", end="")

@@ -5,7 +5,7 @@ from imports import *
 
 
 def move(server):
-    #time.sleep(10)
+    # time.sleep(10)
     server.send(
         json.dumps({
             "type": "Game Move",
@@ -26,7 +26,7 @@ def send_data(server):
         elif command in ["quit", "leave"]:
             server.send(json.dumps({"type": "Quit Game"}).encode())
         elif command in ["login"]:
-            server.send(json.dumps({"type": "Login", "name":input("Name > ")}).encode())
+            server.send(json.dumps({"type": "Login", "name": input("Name > ")}).encode())
         else:
             server.send(command.encode())
 
@@ -56,8 +56,9 @@ def recv_data(server):
         elif data["type"] == "Game Over":
             wewon = data["won"]
             print(data["log"])
-            # if wewon:
-            #     sock.send(json.dumps({"type": "Restart Game"}).encode())
+            if wewon:
+                print("yay!")
+                # sock.send(json.dumps({"type": "Restart Game"}).encode())
 
 
 if __name__ == '__main__':
@@ -70,4 +71,4 @@ if __name__ == '__main__':
     send_thread = Thread(target=lambda: send_data(sock))
     send_thread.start()
     send_thread.join()
-
+    recv_thread.join()

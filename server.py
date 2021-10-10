@@ -131,7 +131,6 @@ def simple_message(user, msgtype, data, additional_args=None):
 
 
 def msg_len(data, length=3):
-
     """
     :param length: length of output string
     :param data: The data we're getting the length of
@@ -155,7 +154,7 @@ def join_game(game_id, user_socket):
         raise IndexError(f"This game has already began, between {a} and {b}")
 
 
-def initialize_game(host, is_slow_game = False):
+def initialize_game(host, is_slow_game=False):
     game_id = params["game_id"]
     games[game_id] = {
         "game": Game(game_id),
@@ -313,21 +312,25 @@ def handle_client(client):  # Takes client socket as argument.
     """
     try:
         taken_names = [x["name"] for x in clients.values()]
-        simple_message(client, msgtype="Welcome", data="Choose a name!",additional_args={"Taken names":taken_names})
+        simple_message(client, msgtype="Welcome", data="Choose a name!", additional_args={"Taken names": taken_names})
         unparsed = client.recv(1024).decode()
-        
+        logged_in = False
+        name = ""
         # ask for name until you recieve a valid message
-        while True:
-            while not validate_user_message(client,unparsed):
+        while not logged_in:
+            # This was a while True loop making the code afterwards unreachable.
+            while not validate_user_message(client, unparsed, has_logged_in=False):
+                # added has_logged_in=False, default is True.
                 unparsed = client.recv(1024).decode()
 
             message = json.loads(unparsed)
             name = message["name"]
 
             if name in taken_names:
-                send_error(client,data="This name is already taken",error_type="Invalid Name")
+                send_error(client, data="This name is already taken", errtype="Invalid Name")
+            else:
+                logged_in = True
 
-        
         print(f"{client}\n has registered as {name}")
 
     except ConnectionResetError:  # 10054
@@ -367,7 +370,7 @@ def handle_client(client):  # Takes client socket as argument.
                 continue
 
             data = json.loads(unparsed)
-
+            msg_type = data["type"]
             # At this point we may assume that we received a valid message from the user.
 
             clients[client]["last_response"] = time.time()
@@ -381,14 +384,14 @@ def handle_client(client):  # Takes client socket as argument.
                         if "slow_game" in data:
                             initialize_game(client, data["slow_game"])
                             simple_message(client, msgtype="Success",
-                                           data=f"You have successfully initialized a game with id {params['game_id'] - 1}, the game doesn't have a time response limit",
-
+                                           data=f"You have successfully initialized a game with id {params['game_id'] - 1}, "
+                                                f"the game doesn't have a time response limit",
                                            additional_args={"game_id": params['game_id'] - 1})
                         else:
                             initialize_game(client)
                             simple_message(client, msgtype="Success",
-                                       data=f"You have successfully initialized a game with id {params['game_id'] - 1}",
-                                       additional_args={"game_id": params['game_id'] - 1})
+                                           data=f"You have successfully initialized a game with id {params['game_id'] - 1}",
+                                           additional_args={"game_id": params['game_id'] - 1})
 
                 # TODO Uriiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii here you can add the tournament match_making
                 if msg_type == "Restart Game":
@@ -459,7 +462,7 @@ def handle_client(client):  # Takes client socket as argument.
                 except IndexError as e:
                     # Selected an empty hole.
                     send_error(client, str(e) + " It is still your turn.", errtype="Invalid Move")
-                except TypeError as e:
+                except TypeError:
                     send_error(client, "Moves have to be ints. It is still your turn.", errtype="Invalid Move")
                 except AttributeError:
                     # Someone won
