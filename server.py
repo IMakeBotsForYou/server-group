@@ -11,19 +11,35 @@ params = {
     "verbose": True,
     "serverup": True,
     "timeout": 1,  # 1 seconds,
-    "matchmaking mode": "lobbies" # "queue"
+    "matchmaking mode": "queue",  # "queue"
+    "delay": 1
 }
 
-queue = []
+competitors = []
 games = {
 
 }
 game_logs = {
 
 }
+leader_board = {}
 
 
 def end_game(game_id):
+    """
+    ends the game when exception is raised.
+    """
+
+    names = [clients[client]["name"] for client in clients]
+    winner = games[game_id]["game"].winner
+    for name in names:
+        leader_board.update({name: 0})
+    if winner == 2:
+        leader_board[games[game_id]["users"][0]] += 1
+        leader_board[games[game_id]["users"][1]] += 1
+    else:
+        leader_board[games[game_id]["users"][winner]] += 2
+
     game = games[game_id]["game"]
 
     users = [clients[client]["name"] for client in games[game_id]["users"]]
@@ -160,11 +176,11 @@ def initialize_game(host, is_slow_game=False):
     games[game_id] = {
         "game": Game(game_id),
         "users": [host],
-        "slow_game": is_slow_game
+        "slow_game": is_slow_game,
+        "next_message": time.time()
     }
     clients[host]["current_game"] = game_id
     params["game_id"] += 1
-
 
 
 def matchmaking():
@@ -172,30 +188,40 @@ def matchmaking():
     competition.
     """
 
-    users_online =
+    schedule = []
+
+    for client in clients:
+        for clnt in clients:
+            if clnt != client:
+                schedule.append((client, client))
 
     while params["serverup"]:
-        if len(queue) > 1:
+
+        if len(competitors) == 4:
             # get game id
             idnum = params["game_id"]
+            # clean competitor's
+            [competitors.remove(comp) for comp in competitors]
 
+            # round competition
+            for i in range(2):
+                match = schedule.pop(0)
+                clients[match[0]]["current_game"] = idnum
+                clients[match[1]]["current_game"] = idnum
+    
+                # create game and save it in the games dictionary
+                games[idnum] = {
+                    "game": Game(idnum),
+                    "users": users,
+                    "slow_game": False,
+                    "next_message": time.time()
+                }
 
-            # get first 2 users in queue
-            users = queue.pop(0), queue.pop(0)
-            clients[users[0]]["current_game"] = idnum
-            clients[users[1]]["current_game"] = idnum
-            # create game and save it in the games dictionary
-            games[idnum] = {
-                "game": Game(idnum),
-                "users": users
-            }
-
-            # inc the next game id by 1
-            params["game_id"] += 1
-            # notify the 2 users of game start.
-            # first user to join the queue gets first move.
-            send_board_update(idnum)
-    return leader_board
+                # inc the next game id by 1
+                params["game_id"] += 1
+                # notify the 2 users of game start.
+                # first user to join the queue gets first move.
+                send_board_update(idnum)
 
 
 def accept_incoming_connections():
@@ -233,7 +259,7 @@ def kick_from_game(client, message=None):
         clients[client]["current_game"] = None
         name = clients[client]["name"]
 
-        players = games[in_game]["users"]
+        players = list(games[in_game]["users"])
 
         events_so_far = len(games[in_game]["game"].log)
         games[in_game]["game"].log_event(events_so_far,
@@ -315,7 +341,6 @@ def validate_user_message(client, data, has_logged_in=True):
     return True
 
 
-
 def handle_client(client):  # Takes client socket as argument.
     """
     Handles a single client connection.
@@ -366,7 +391,7 @@ def handle_client(client):  # Takes client socket as argument.
                            "current_game": None}
 
         if params["matchmaking mode"] == "queue":
-            queue.append(client)
+            competitors.append(client)
 
         name = clients[client]["name"]
 
@@ -465,6 +490,12 @@ def handle_client(client):  # Takes client socket as argument.
 
             #
             if msg_type == "Game Move":
+                if params["matchmaking mode"] == "queue":
+                    if time.time() > games["next_message"]:
+                        games["next_message"] = time.time() + 1
+                    else:
+                        send_error(client, "You've made a move too soon. It is still in cooldown.",
+                                   errtype="Timeout error")
                 play_index = data["index"]
                 if clients[client]["current_game"] is None:
                     continue
@@ -495,8 +526,6 @@ def handle_client(client):  # Takes client socket as argument.
                 #
                 # except Exception as e:
                 #     send_error(client, errtype="Server Error", data=str(e))
-
-
 
 
 def broadcast(msg, send_to=None):
