@@ -62,6 +62,9 @@ def end_game(game_id):
     }
     for client in leader_board:
         print(f"{clients[client]['name']}: {leader_board[client]}")
+    competitors.append(games[game_id]["users"][0])
+    competitors.append(games[game_id]["users"][1])
+
     try:
         p1 = games[game_id]["users"][0]
         send(p1, first_p)
@@ -199,7 +202,7 @@ def matchmaking():
 
     while params["serverup"]:
 
-        if len(competitors) == 4:
+        if len(competitors) == 4 and schedule != []:
             # get game id
 
             # clean competitor's
