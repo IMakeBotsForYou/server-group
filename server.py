@@ -221,7 +221,7 @@ def kick_from_game(client, message=None):
         clients[client]["current_game"] = None
         name = clients[client]["name"]
 
-        players = games[in_game]["users"]
+        players = list(games[in_game]["users"])
 
         events_so_far = len(games[in_game]["game"].log)
         games[in_game]["game"].log_event(events_so_far,
@@ -267,7 +267,7 @@ def validate_user_message(client, data, has_logged_in=True):
 
     if not has_logged_in and msg_type != "Login":
         send_error(client, errtype="Bad Request", data="You have to be logged in first.")
-        return false
+        return False
 
     if msg_type == "Login":
         if has_logged_in:
