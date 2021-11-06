@@ -200,13 +200,14 @@ def matchmaking():
 
         if len(competitors) == 4:
             # get game id
-            idnum = params["game_id"]
+
             # clean competitor's
             [competitors.remove(comp) for comp in competitors]
             match = [0, 0]
             k = 0
             # round competition
             for i in range(2):
+                idnum = params["game_id"]
                 while match[0] == schedule[k][0] or match[0] == schedule[k][1] or match[1] == schedule[k][1] or match[
                     1] == schedule[k][0]:
                     k+= 1
