@@ -1,6 +1,8 @@
 import unittest
 import subprocess
 import time
+
+
 class TestClientServer(unittest.TestCase):
     def test(self):
         server_process = subprocess.Popen(['python', 'server.py'],
@@ -45,7 +47,6 @@ class TestClientServer(unittest.TestCase):
         client_process_2.kill()
         server_process.kill()
         time.sleep(1)
-
 
 
 if __name__ == '__main__':
