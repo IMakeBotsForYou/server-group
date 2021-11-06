@@ -92,7 +92,7 @@ def send_board_update(game_id):
     }
 
     # open timeout thread for the user that needs to answer
-    if not games[game_id]["slow_game"]:
+    if not games[game_id]["slow_game"]: #5
         _thread.start_new_thread(inactivity_func, (params["timeout"], games[game_id]["users"][current_player]))
 
     try:
@@ -212,7 +212,6 @@ def accept_incoming_connections():
 
 def kick_from_game(client, message=None):
     in_game = clients[client]["current_game"]
-    print(f"game over: {games[in_game]['game'].game_over}")
     if in_game is None:
         raise AttributeError("Cannot kick a user from a game if they're not in one.")
     elif not games[in_game]["game"].game_over:
@@ -277,8 +276,11 @@ def validate_user_message(client, data, has_logged_in=True):
         if "name" not in data:
             send_error(client, errtype="Bad Message", data="'name' field missing in Login message")
             return False
+        elif not isinstance(data["name"],str):
+            send_error(client, errtype="Bad Message", data="'name' field needs to be a string")
+            return False
 
-    if msg_type == "Game Move":
+    elif msg_type == "Game Move":
         try:
             index = data["index"]
             assert isinstance(index, int)
@@ -289,7 +291,7 @@ def validate_user_message(client, data, has_logged_in=True):
             send_error(client, errtype="Bad Message", data="'index' field must be int.")
             return False
 
-    if msg_type == "Join Game":
+    elif msg_type == "Join Game":
         try:
             game_id = data["game_id"]
             assert isinstance(game_id, int)
@@ -445,6 +447,9 @@ def handle_client(client):  # Takes client socket as argument.
                         kick_from_game(client)
                     except AttributeError:
                         send_error(client, errtype="Bad Request", data="Can't quit game if user is not in a game.")
+                    except IndexError:
+                        simple_message(client, msgtype="Success",
+                                       data=f"You have successfully quit game #{in_game}")
                     else:
                         simple_message(client, msgtype="Success",
                                        data=f"You have successfully quit game #{in_game}")
