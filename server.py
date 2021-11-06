@@ -30,10 +30,9 @@ def end_game(game_id):
     ends the game when exception is raised.
     """
 
-    names = [clients[client]["name"] for client in clients]
     winner = games[game_id]["game"].winner
-    for name in names:
-        leader_board.update({name: 0})
+    for client in clients:
+        leader_board.update({client: 0})
     if winner == 2:
         leader_board[games[game_id]["users"][0]] += 1
         leader_board[games[game_id]["users"][1]] += 1
@@ -188,12 +187,14 @@ def matchmaking():
     competition.
     """
 
-    schedule = []
-
-    for client in clients:
-        for clnt in clients:
-            if clnt != client:
-                schedule.append((client, client))
+    schedule = []  # games schedule
+    while 1:
+        if len(clients) == 4:
+            for client in clients:
+                for clnt in clients:
+                    if clnt != client:
+                        schedule.append([client, clnt])
+            break
 
     while params["serverup"]:
 
@@ -202,26 +203,34 @@ def matchmaking():
             idnum = params["game_id"]
             # clean competitor's
             [competitors.remove(comp) for comp in competitors]
-
+            match = [0, 0]
+            k = 0
             # round competition
             for i in range(2):
-                match = schedule.pop(0)
+                while match[0] == schedule[k][0] or match[0] == schedule[k][1] or match[1] == schedule[k][1] or match[
+                    1] == schedule[k][0]:
+                    k+= 1
+
+                match = schedule.pop(k)
+                k=0
                 clients[match[0]]["current_game"] = idnum
                 clients[match[1]]["current_game"] = idnum
-    
+
                 # create game and save it in the games dictionary
                 games[idnum] = {
                     "game": Game(idnum),
-                    "users": users,
+                    "users": match,
                     "slow_game": False,
                     "next_message": time.time()
                 }
-
-                # inc the next game id by 1
                 params["game_id"] += 1
+
                 # notify the 2 users of game start.
                 # first user to join the queue gets first move.
                 send_board_update(idnum)
+
+            if schedule == []:
+                print(leader_board)
 
 
 def accept_incoming_connections():
@@ -490,12 +499,12 @@ def handle_client(client):  # Takes client socket as argument.
 
             #
             if msg_type == "Game Move":
-                if params["matchmaking mode"] == "queue":
-                    if time.time() > games["next_message"]:
-                        games["next_message"] = time.time() + 1
-                    else:
-                        send_error(client, "You've made a move too soon. It is still in cooldown.",
-                                   errtype="Timeout error")
+                #if params["matchmaking mode"] == "queue":
+                    #if time.time() > games[client["current_game"]]["next_message"]:
+                        #games["next_message"] = time.time() + 1
+                    #else:
+                        #send_error(client, "You've made a move too soon. It is still in cooldown.",
+                                   #errtype="Timeout error")
                 play_index = data["index"]
                 if clients[client]["current_game"] is None:
                     continue
