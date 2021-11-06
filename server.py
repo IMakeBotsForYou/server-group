@@ -31,7 +31,7 @@ def end_game(game_id):
     """
 
     winner = games[game_id]["game"].winner
-    for client in clients:
+    for client in games[game_id]["users"]:
         leader_board.update({client: 0})
     if winner == 2:
         leader_board[games[game_id]["users"][0]] += 1
@@ -60,7 +60,8 @@ def end_game(game_id):
         "won": winner == 1,
         "log": game.log
     }
-
+    for client in leader_board:
+        print(f"{clients[client]['name']}: {leader_board[client]}")
     try:
         p1 = games[game_id]["users"][0]
         send(p1, first_p)
@@ -230,8 +231,7 @@ def matchmaking():
                 # first user to join the queue gets first move.
                 send_board_update(idnum)
 
-            if schedule == []:
-                print(leader_board)
+
 
 
 def accept_incoming_connections():
