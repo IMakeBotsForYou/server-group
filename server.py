@@ -47,7 +47,6 @@ def end_game(game_id):
     for move in game.log:
         if game.log[move]["move"] != "Surrender":
             # The player is already updated. So this is unneeded and will cause an error.
-
             game.log[move]["player"] = users[game.log[move]["player"]]
 
     first_p = {
@@ -62,6 +61,7 @@ def end_game(game_id):
     }
     for client in leader_board:
         print(f"{clients[client]['name']}: {leader_board[client]}")
+
     competitors.append(games[game_id]["users"][0])
     competitors.append(games[game_id]["users"][1])
 
