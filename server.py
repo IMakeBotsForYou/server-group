@@ -5,14 +5,15 @@ import _thread
 from imports import *
 
 # global parameters
-matchmaking_modes = ["lobbies", "fast_queue"]
+matchmaking_modes = ["lobbies", "queue"]
 params = {
     "game_id": 0,
     "verbose": True,
     "serverup": True,
-    "timeout": 5,  # 5 seconds,
-    "matchmaking mode": "lobbies"
+    "timeout": 1,  # 1 seconds,
+    "matchmaking mode": "lobbies" # "queue"
 }
+
 queue = []
 games = {
 
@@ -165,11 +166,19 @@ def initialize_game(host, is_slow_game=False):
     params["game_id"] += 1
 
 
+
 def matchmaking():
+    """
+    competition.
+    """
+
+    users_online =
+
     while params["serverup"]:
         if len(queue) > 1:
             # get game id
             idnum = params["game_id"]
+
 
             # get first 2 users in queue
             users = queue.pop(0), queue.pop(0)
@@ -180,11 +189,13 @@ def matchmaking():
                 "game": Game(idnum),
                 "users": users
             }
+
             # inc the next game id by 1
             params["game_id"] += 1
             # notify the 2 users of game start.
             # first user to join the queue gets first move.
             send_board_update(idnum)
+    return leader_board
 
 
 def accept_incoming_connections():
@@ -194,7 +205,7 @@ def accept_incoming_connections():
     Then, we start a thread for that user and handle their input.
     """
     makingmode = params["matchmaking mode"]
-    if makingmode == "fast_queue":
+    if makingmode == "queue":
         # matchmaking_thread = Thread(target=matchmaking, daemon=True)
         # matchmaking_thread.start()
         _thread.start_new_thread(matchmaking, ())
@@ -206,6 +217,7 @@ def accept_incoming_connections():
         print(f"{client_address} has connected.")
         addresses[client] = client_address
         _thread.start_new_thread(handle_client, (client,))
+
         # Thread(target=handle_client, args=(client,), daemon=True).start()
         print(f"Starting thread for {client_address}")
 
@@ -303,6 +315,7 @@ def validate_user_message(client, data, has_logged_in=True):
     return True
 
 
+
 def handle_client(client):  # Takes client socket as argument.
     """
     Handles a single client connection.
@@ -394,6 +407,7 @@ def handle_client(client):  # Takes client socket as argument.
                                            additional_args={"game_id": params['game_id'] - 1})
 
                 # TODO Uriiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii here you can add the tournament match_making
+
                 if msg_type == "Restart Game":
                     if clients[client]["current_game"] is not None:
                         game_id = clients[client]["current_game"]
@@ -478,9 +492,11 @@ def handle_client(client):  # Takes client socket as argument.
                 else:
                     send_board_update(clients[client]["current_game"])
 
-            #
-            # except Exception as e:
-            #     send_error(client, errtype="Server Error", data=str(e))
+                #
+                # except Exception as e:
+                #     send_error(client, errtype="Server Error", data=str(e))
+
+
 
 
 def broadcast(msg, send_to=None):

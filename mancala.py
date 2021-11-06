@@ -130,6 +130,18 @@ class Mancala:
             else:
                 self.winner = 2
 
+    def reset_competition(self):
+        """
+        reset game for competition
+        """
+        self.move_number = 1
+        self.current_player = 1
+        self.board = [0, 4, 4, 4, 4, 4, 4] * 2
+        self.log = {
+        }
+        self.game_over = False
+        self.winner = None
+        
     def make_move(self, current_index, verbose=True, adjust_index=False):
         """
         :param current_index: Index to play
@@ -232,19 +244,3 @@ class Mancala:
             "log": self.log
         }
 
-import unittest
-
-class TestMancala(unittest.TestCase):
-    def test(self):
-        board = Mancala(0)
-        board.make_move(1)
-        self.assertEqual(board.board,[1, 0, 4, 4, 4, 4, 4, 0, 4, 4, 4, 5, 5, 5])
-        with self.assertRaises(ValueError):
-            board.make_move(1)
-        board.make_move(12) # land in your own goal, get an extra turn
-        board.make_move(11)
-
-
-
-if __name__ == '__main__':
-    unittest.main()
