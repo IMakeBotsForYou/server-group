@@ -276,7 +276,7 @@ def validate_user_message(client, data, has_logged_in=True):
         if "name" not in data:
             send_error(client, errtype="Bad Message", data="'name' field missing in Login message")
             return False
-        elif not isinstance(data["name"],str):
+        elif not isinstance(data["name"], str):
             send_error(client, errtype="Bad Message", data="'name' field needs to be a string")
             return False
 
@@ -300,6 +300,12 @@ def validate_user_message(client, data, has_logged_in=True):
             return False
         except AssertionError:
             send_error(client, errtype="Bad Message", data="'game id' field must be int.")
+            return False
+
+    elif msg_type == "Start Game":
+        if "slow_game" in data:
+            if not isinstance(data["slow_game"], bool):
+                send_error(client, errtype="Bad Message", data="'slow_game' field needs to be a boolean")
             return False
 
     return True
