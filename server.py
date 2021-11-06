@@ -69,12 +69,12 @@ def end_game(game_id):
         p1 = games[game_id]["users"][0]
         send(p1, first_p)
     except Exception as e:
-        print(e)
+        print(e, 72)
     try:
         p2 = games[game_id]["users"][1]
         send(p2, second_p)
     except Exception as e:
-        print(e)
+        print(e, 77)
 
 
 def send(client, obj):
@@ -263,12 +263,10 @@ def accept_incoming_connections():
 
 def kick_from_game(client, message=None):
     in_game = clients[client]["current_game"]
-    print(f"game over: {games[in_game]['game'].game_over}")
     if in_game is None:
         raise AttributeError("Cannot kick a user from a game if they're not in one.")
     elif not games[in_game]["game"].game_over:
         # if the user is in a game
-
         clients[client]["current_game"] = None
         name = clients[client]["name"]
 
