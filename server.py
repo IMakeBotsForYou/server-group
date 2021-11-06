@@ -306,7 +306,7 @@ def validate_user_message(client, data, has_logged_in=True):
         if "slow_game" in data:
             if not isinstance(data["slow_game"], bool):
                 send_error(client, errtype="Bad Message", data="'slow_game' field needs to be a boolean")
-            return False
+                return False
 
     return True
 
