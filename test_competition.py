@@ -6,7 +6,7 @@ import time
 class TestCompetition(unittest.TestCase):
     def test(self):
         server_process = subprocess.Popen(['python', 'server.py'],
-                     stdout=subprocess.PIPE, 
+                    #  stdout=subprocess.PIPE, 
                     #  stderr=subprocess.PIPE,
                      stdin=subprocess.PIPE,)
         server_process.stdin.write(b'lan\n')
@@ -19,13 +19,12 @@ class TestCompetition(unittest.TestCase):
         client_process_3 = self.client("C")
         client_process_4 = self.client("D")
 
-        time.sleep(1)
     
     def client(self, name):
         client_process = subprocess.Popen(['python', 'client.py'],
-                    # stdout=subprocess.PIPE, 
+                    stdout=subprocess.DEVNULL, 
                     # stderr=subprocess.PIPE,
-                    stdin=subprocess.PIPE,)
+                    stdin=subprocess.PIPE)
         client_process.stdin.write(b'login\n')
         client_process.stdin.flush()
         client_process.stdin.write(name.encode())
