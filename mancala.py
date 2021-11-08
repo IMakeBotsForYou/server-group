@@ -232,18 +232,19 @@ class Mancala:
             "log": self.log
         }
 
+
 import unittest
+
 
 class TestMancala(unittest.TestCase):
     def test(self):
         board = Mancala(0)
         board.make_move(1)
-        self.assertEqual(board.board,[1, 0, 4, 4, 4, 4, 4, 0, 4, 4, 4, 5, 5, 5])
+        self.assertEqual(board.board, [1, 0, 4, 4, 4, 4, 4, 0, 4, 4, 4, 5, 5, 5])
         with self.assertRaises(ValueError):
             board.make_move(1)
-        board.make_move(12) # land in your own goal, get an extra turn
+        board.make_move(12)  # land in your own goal, get an extra turn
         board.make_move(11)
-
 
 
 if __name__ == '__main__':

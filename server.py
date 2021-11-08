@@ -365,134 +365,145 @@ def handle_client(client):  # Takes client socket as argument.
             queue.append(client)
 
         name = clients[client]["name"]
+        try:
+            while params["serverup"]:
 
-        while params["serverup"]:
+                '''
+                here we get data from the client
+                '''
+                buffer = client.recv(1024, MSG_PEEK)
+                if buffer != b'':
+                    # Maya Vaksin's client is spamming the damn console
+                    print(buffer)
+                unparsed = client.recv(1024)
+                valid = validate_user_message(client, unparsed)
 
-            '''
-            here we get data from the client
-            '''
-            print(client.recv(1024, MSG_PEEK))
-            unparsed = client.recv(1024)
-            valid = validate_user_message(client, unparsed)
-
-            if not valid:
-                continue
-
-            data = json.loads(unparsed)
-            msg_type = data["type"]
-            # At this point we may assume that we received a valid message from the user.
-
-            clients[client]["last_response"] = time.time()
-
-            if params["matchmaking mode"] == "lobbies":
-                if msg_type == "Start Game":
-                    if clients[client]["current_game"]:
-                        send_error(client, errtype="Bad Request",
-                                   data="You are already in a lobby. To create a new one leave your current one.")
-                    else:
-                        if "slow_game" in data:
-                            initialize_game(client, data["slow_game"])
-                            simple_message(client, msgtype="Success",
-                                           data=f"You have successfully initialized a game with id {params['game_id'] - 1}, "
-                                                f"the game doesn't have a time response limit",
-                                           additional_args={"game_id": params['game_id'] - 1})
-                        else:
-                            initialize_game(client)
-                            simple_message(client, msgtype="Success",
-                                           data=f"You have successfully initialized a game with id {params['game_id'] - 1}",
-                                           additional_args={"game_id": params['game_id'] - 1})
-
-                # TODO Uriiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii here you can add the tournament match_making
-                if msg_type == "Restart Game":
-                    if clients[client]["current_game"] is not None:
-                        game_id = clients[client]["current_game"]
-                        # if user is the owner of the game:
-                        # if client != games[game_id]["users"][0]:
-                        #     send_error(client, errtype="Permission Error",
-                        #                data="You are not the owner of the game. "
-                        #                     "Only the owner of the game can restart it.")
-
-                        if games[game_id]["game"].game_over:
-
-                            games[game_id]["game"].reset()
-                            simple_message(client, msgtype="Success",
-                                           data=f"You have successfully restarted game #{game_id}")
-                            if len(games[game_id]["users"]) > 1:
-                                simple_message(games[game_id]["users"][1], msgtype="Notification",
-                                               data="Your game has been restarted.")
-                                send_board_update(game_id)
-                        else:
-                            send_error(client, errtype="Bad Request",
-                                       data="Cannot reset a game in progress."
-                                            "A game can only be restarted after it has ended.")
-
-                #
-                if msg_type == "Join Game":
-                    game_id = data["game_id"]
-                    try:
-                        join_game(game_id, client)
-                    except IndexError:
-                        send_error(client, errtype="Join Error",
-                                   data=f"Game #{game_id} is full.")
-                    except KeyError:
-                        send_error(client, errtype="Join Error",
-                                   data=f"#{game_id} is an invalid game ID.")
-                    else:
-                        opponent_socket = games[game_id]["users"][0]
-                        opponent_name = clients[opponent_socket]["name"]
-                        simple_message(client, msgtype="Success",
-                                       data=f"You have successfully joined game #{game_id}, "
-                                            f"your opponent is {opponent_name}")
-
-                        simple_message(opponent_socket, msgtype="Notification",
-                                       data=f"{name} has joined your Lobby.")
-
-                #
-                if msg_type == "Quit Game":
-                    in_game = clients[client]["current_game"]
-                    try:
-                        kick_from_game(client)
-                    except AttributeError:
-                        send_error(client, errtype="Bad Request", data="Can't quit game if user is not in a game.")
-                    except IndexError:
-                        simple_message(client, msgtype="Success",
-                                       data=f"You have successfully quit game #{in_game}")
-                    else:
-                        simple_message(client, msgtype="Success",
-                                       data=f"You have successfully quit game #{in_game}")
-
-            #
-            if msg_type == "Game Move":
-                play_index = data["index"]
-                if clients[client]["current_game"] is None:
+                if not valid:
                     continue
-                try:
-                    games[clients[client]["current_game"]]["game"].make_move(play_index, adjust_index=True)
-                except ValueError:
-                    send_error(client, "You've made an invalid move. It is still your turn.",
-                               errtype="Invalid Move")
-                except IndexError as e:
-                    # Selected an empty hole.
-                    send_error(client, str(e) + " It is still your turn.", errtype="Invalid Move")
-                except TypeError:
-                    send_error(client, "Moves have to be ints. It is still your turn.", errtype="Invalid Move")
-                except AttributeError:
-                    # Someone won
-                    end_game(clients[client]["current_game"])
-                except KeyError:
-                    """
-                    If the client would send {Game Move} messages while not in a game,
-                    or after being kicked, it would give a KeyError for 
-                    games[clients[client]["current_game"]]["game"]
-                    This is now handled. 
-                    """
-                    send_error(client, "Something went wrong.", errtype="Invalid Move")
-                else:
-                    send_board_update(clients[client]["current_game"])
 
-            #
-            # except Exception as e:
-            #     send_error(client, errtype="Server Error", data=str(e))
+                data = json.loads(unparsed)
+                msg_type = data["type"]
+                # At this point we may assume that we received a valid message from the user.
+
+                clients[client]["last_response"] = time.time()
+
+                if params["matchmaking mode"] == "lobbies":
+                    if msg_type == "Start Game":
+                        if clients[client]["current_game"]:
+                            send_error(client, errtype="Bad Request",
+                                       data="You are already in a lobby. To create a new one leave your current one.")
+                        else:
+                            if "slow_game" in data:
+                                initialize_game(client, data["slow_game"])
+                                simple_message(client, msgtype="Success",
+                                               data=f"You have successfully initialized a game with id {params['game_id'] - 1}, "
+                                                    f"the game doesn't have a time response limit",
+                                               additional_args={"game_id": params['game_id'] - 1})
+                            else:
+                                initialize_game(client)
+                                simple_message(client, msgtype="Success",
+                                               data=f"You have successfully initialized a game with id {params['game_id'] - 1}",
+                                               additional_args={"game_id": params['game_id'] - 1})
+
+                    # TODO Uriiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii here you can add the tournament match_making
+                    if msg_type == "Restart Game":
+                        if clients[client]["current_game"] is not None:
+                            game_id = clients[client]["current_game"]
+                            # if user is the owner of the game:
+                            # if client != games[game_id]["users"][0]:
+                            #     send_error(client, errtype="Permission Error",
+                            #                data="You are not the owner of the game. "
+                            #                     "Only the owner of the game can restart it.")
+
+                            if games[game_id]["game"].game_over:
+
+                                games[game_id]["game"].reset()
+                                simple_message(client, msgtype="Success",
+                                               data=f"You have successfully restarted game #{game_id}")
+                                if len(games[game_id]["users"]) > 1:
+                                    simple_message(games[game_id]["users"][1], msgtype="Notification",
+                                                   data="Your game has been restarted.")
+                                    send_board_update(game_id)
+                            else:
+                                send_error(client, errtype="Bad Request",
+                                           data="Cannot reset a game in progress."
+                                                "A game can only be restarted after it has ended.")
+
+                    #
+                    if msg_type == "Join Game":
+                        game_id = data["game_id"]
+                        try:
+                            join_game(game_id, client)
+                        except IndexError:
+                            send_error(client, errtype="Join Error",
+                                       data=f"Game #{game_id} is full.")
+                        except KeyError:
+                            send_error(client, errtype="Join Error",
+                                       data=f"#{game_id} is an invalid game ID.")
+                        else:
+                            opponent_socket = games[game_id]["users"][0]
+                            opponent_name = clients[opponent_socket]["name"]
+                            simple_message(client, msgtype="Success",
+                                           data=f"You have successfully joined game #{game_id}, "
+                                                f"your opponent is {opponent_name}")
+
+                            simple_message(opponent_socket, msgtype="Notification",
+                                           data=f"{name} has joined your Lobby.")
+
+                    #
+                    if msg_type == "Quit Game":
+                        in_game = clients[client]["current_game"]
+                        try:
+                            kick_from_game(client)
+                        except AttributeError:
+                            send_error(client, errtype="Bad Request", data="Can't quit game if user is not in a game.")
+                        except IndexError:
+                            simple_message(client, msgtype="Success",
+                                           data=f"You have successfully quit game #{in_game}")
+                        else:
+                            simple_message(client, msgtype="Success",
+                                           data=f"You have successfully quit game #{in_game}")
+
+                #
+                if msg_type == "Game Move":
+                    play_index = data["index"]
+                    if clients[client]["current_game"] is None:
+                        continue
+                    try:
+                        games[clients[client]["current_game"]]["game"].make_move(play_index, adjust_index=True)
+                    except ValueError:
+                        send_error(client, "You've made an invalid move. It is still your turn.",
+                                   errtype="Invalid Move")
+                    except IndexError as e:
+                        # Selected an empty hole.
+                        send_error(client, str(e) + " It is still your turn.", errtype="Invalid Move")
+                    except TypeError:
+                        send_error(client, "Moves have to be ints. It is still your turn.", errtype="Invalid Move")
+                    except AttributeError:
+                        # Someone won
+                        end_game(clients[client]["current_game"])
+                    except KeyError:
+                        """
+                        If the client would send {Game Move} messages while not in a game,
+                        or after being kicked, it would give a KeyError for 
+                        games[clients[client]["current_game"]]["game"]
+                        This is now handled. 
+                        """
+                        send_error(client, "Something went wrong.", errtype="Invalid Move")
+                    else:
+                        send_board_update(clients[client]["current_game"])
+
+        except ConnectionResetError:  # 10054
+            print("Client error'd out.")
+            del addresses[client]
+        except ConnectionAbortedError:
+            del addresses[client]
+            pass
+        except UnicodeDecodeError:
+            del addresses[client]
+            pass
+        except Exception as e:
+            send_error(client, errtype="Server Error", data=str(e))
 
 
 def broadcast(msg, send_to=None):
