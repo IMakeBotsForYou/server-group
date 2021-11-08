@@ -410,21 +410,20 @@ def handle_client(client):  # Takes client socket as argument.
                                        data="You are already in a lobby. To create a new one leave your current one.")
                         else:
                             if "slow_game" in data:
+                                initialize_game(client, data["slow_game"])
                                 if data["slow_game"]:
                                     message = f"You have successfully initialized a game with id {params['game_id'] - 1}, "\
                                            f"the game doesn't have a time response limit"
                                 else:
                                     message = f"You have successfully initialized a game with id {params['game_id'] - 1}, "\
                                            f"the game has a {params['timeout']}s timeout."
-
-                                initialize_game(client, data["slow_game"])
                                 simple_message(client, msgtype="Success",
                                                data=message,
                                                additional_args={"game_id": params['game_id'] - 1})
                             else:
                                 initialize_game(client)
                                 simple_message(client, msgtype="Success",
-                                               data=f"You have successfully initialized a game with id {params['game_id'] - 1}",
+                                               data=f"You have successfully initialized a game with id {params['game_id']}",
                                                additional_args={"game_id": params['game_id'] - 1})
 
                     # TODO Uriiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii here you can add the tournament match_making
