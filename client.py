@@ -24,6 +24,11 @@ def send_data(server):
             server.send(json.dumps({"type": "Quit Game"}).encode())
         elif command in ["login"]:
             server.send(json.dumps({"type": "Login", "name": input("Name > ")}).encode())
+        elif command in ["logout"]:
+            server.send(json.dumps({"type": "Logout"}).encode())
+        elif command in ["list", "lobbies", "showall"]:
+            server.send(json.dumps({"type": "Lobbies List"}).encode())
+
         else:
             server.send(command.encode())
 

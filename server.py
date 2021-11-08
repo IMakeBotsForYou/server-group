@@ -64,8 +64,8 @@ def end_game(game_id):
 
 
 def send(client, obj):
-    obj_str = json.dumps(obj)
-    data = (msg_len(obj_str, 5) + obj_str).encode()
+    obj_str = json.dumps(obj).encode()
+    data = msg_len(obj_str, 5).encode() + obj_str
     client.send(data)
 
 
@@ -253,7 +253,7 @@ def kick_from_game(client, message=None):
 
 
 def validate_user_message(client, data, has_logged_in=True):
-    message_types = ["Login", "Game Move", "Quit Game", "Join Game", "Start Game", "Restart Game"]
+    message_types = ["Login", "Logout", "Lobbies List", "Game Move", "Quit Game", "Join Game", "Start Game", "Restart Game"]
     try:
         data = json.loads(data)
     except json.decoder.JSONDecodeError:
@@ -514,19 +514,47 @@ def handle_client(client):  # Takes client socket as argument.
                     else:
                         send_board_update(clients[client]["current_game"])
 
+                if msg_type == "Logout":
+                    simple_message(client, msgtype="Success", data="You have been logged out.")
+                    raise ConnectionAbortedError
+
+                if msg_type == "Lobbies List":
+                    dynamic = "lobby" if params['game_id'] == 1 else "lobbies"
+                    all_lobbies = {}
+                    def get_name(client):
+                        if client in clients:
+                            return clients[client]['name']
+                        else:
+                            return "<Left Server>"
+
+                    def game_status(game_id):
+                        if games[game_id]["game"].winner == 2:
+                            return "Tie"
+                        users = [get_name(c) for c in games[game_id]["users"]]
+                        winner = games[game_id]["game"].winner
+                        return users[winner] + " won."
+
+                    for game_id in games:
+                        all_lobbies[game_id] = {
+                            "users": [get_name(c) for c in games[game_id]['users']],
+                            "game status": game_status(game_id)
+                        }
+
+                    simple_message(client, msgtype="Notification",
+                                   data=f"Here are all of the lobbies. There are currently {params['game_id']} {dynamic}.",
+                                   additional_args=all_lobbies)
+
             except ConnectionResetError:  # 10054
                 print("Client error'd out.")
+                del addresses[client]
                 del addresses[client]
                 break
             except ConnectionAbortedError:
                 del addresses[client]
-                break
-            except UnicodeDecodeError:
                 del addresses[client]
                 break
-            # except Exception as e:
-            #     print(e)
-            #     send_error(client, errtype="Server Error", data=str(e))
+            except UnicodeDecodeError:
+                send_error(client, errtype="Bad Message", data="UnicodeDecodeError has occured.")
 
 
 def broadcast(msg, send_to=None):
