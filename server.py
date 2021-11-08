@@ -337,7 +337,7 @@ def handle_client(client):  # Takes client socket as argument.
             if name in taken_names:
                 send_error(client, data="This name is already taken", errtype="Invalid Name")
             else:
-                send(client,data={"type":"Login Successfull"})
+                send(client,{"type":"Login Successfull"})
                 logged_in = True
 
         print(f"{client}\n has registered as {name}")
