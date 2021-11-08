@@ -116,7 +116,7 @@ def send_error(user, data, errtype="None"):
     send(user, jsonobj)
 
 
-def simple_message(user, msgtype, data, additional_args=None):
+def simple_message(user, msgtype, data="", additional_args=None):
     if additional_args is None:
         additional_args = {}
 
@@ -318,6 +318,16 @@ def handle_client(client):  # Takes client socket as argument.
     Then we handle every message, from normal, Commands everyone can see,
     and commands only the user can see.
     """
+    # remove disconnected users
+    # for user in clients.copy():
+    #     try:
+    #         simple_message(user, msgtype="Ping")
+    #     except Exception as e:
+    #         print("Removed", clients[user]["name"])
+    #         del clients[user]
+    #     else:
+    #         print("Successfully pinged", clients[user]["name"])
+
     try:
         taken_names = [x["name"] for x in clients.values()]
         simple_message(client, msgtype="Welcome", data="Choose a name!", additional_args={"Taken names": taken_names})
@@ -374,7 +384,7 @@ def handle_client(client):  # Takes client socket as argument.
                 buffer = client.recv(1024, MSG_PEEK)
                 if buffer != b'':
                     # Maya Vaksin's client is spamming the damn console
-                    print(buffer)
+                    print(f"{clients[client]['name']}: {buffer} @ {time.ctime(time.time())}")
                 unparsed = client.recv(1024)
                 valid = validate_user_message(client, unparsed)
 
@@ -394,10 +404,16 @@ def handle_client(client):  # Takes client socket as argument.
                                        data="You are already in a lobby. To create a new one leave your current one.")
                         else:
                             if "slow_game" in data:
+                                if data["slow_game"]:
+                                    data = f"You have successfully initialized a game with id {params['game_id'] - 1}, "\
+                                           f"the game doesn't have a time response limit"
+                                else:
+                                    data = f"You have successfully initialized a game with id {params['game_id'] - 1}, "\
+                                           f"the game has a {params['timeout']}s timeout."
+
                                 initialize_game(client, data["slow_game"])
                                 simple_message(client, msgtype="Success",
-                                               data=f"You have successfully initialized a game with id {params['game_id'] - 1}, "
-                                                    f"the game doesn't have a time response limit",
+                                               data=data,
                                                additional_args={"game_id": params['game_id'] - 1})
                             else:
                                 initialize_game(client)
@@ -503,6 +519,7 @@ def handle_client(client):  # Takes client socket as argument.
             del addresses[client]
             pass
         except Exception as e:
+            print(e)
             send_error(client, errtype="Server Error", data=str(e))
 
 
