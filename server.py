@@ -2,6 +2,7 @@
 import mancala
 from mancala import Mancala as Game
 import _thread
+import re
 from imports import *
 
 # global parameters
@@ -31,8 +32,13 @@ def end_game(game_id):
     for move in game.log:
         if game.log[move]["move"] != "Surrender":
             # The player is already updated. So this is unneeded and will cause an error.
-
             game.log[move]["player"] = users[game.log[move]["player"]]
+
+        # Change "Player A/B won" to the user's name.
+        if game.log[move]["special event"][-4:] == 'won.':
+            winner_socket = games[game_id]["users"][winner]
+            # using regex bc there might be a special event like rule 3 or extra move as well in the mix :)
+            game.log[move]["special event"] = re.sub(game.log[move]["special event"], 'A|B', f"{clients[winner_socket]['name']} won.")
 
     first_p = {
         "type": "Game Over",
@@ -375,9 +381,9 @@ def handle_client(client):  # Takes client socket as argument.
             queue.append(client)
 
         name = clients[client]["name"]
-        try:
-            while params["serverup"]:
 
+        while params["serverup"]:
+            try:
                 '''
                 here we get data from the client
                 '''
@@ -405,15 +411,15 @@ def handle_client(client):  # Takes client socket as argument.
                         else:
                             if "slow_game" in data:
                                 if data["slow_game"]:
-                                    data = f"You have successfully initialized a game with id {params['game_id'] - 1}, "\
+                                    message = f"You have successfully initialized a game with id {params['game_id'] - 1}, "\
                                            f"the game doesn't have a time response limit"
                                 else:
-                                    data = f"You have successfully initialized a game with id {params['game_id'] - 1}, "\
+                                    message = f"You have successfully initialized a game with id {params['game_id'] - 1}, "\
                                            f"the game has a {params['timeout']}s timeout."
 
                                 initialize_game(client, data["slow_game"])
                                 simple_message(client, msgtype="Success",
-                                               data=data,
+                                               data=message,
                                                additional_args={"game_id": params['game_id'] - 1})
                             else:
                                 initialize_game(client)
@@ -509,18 +515,19 @@ def handle_client(client):  # Takes client socket as argument.
                     else:
                         send_board_update(clients[client]["current_game"])
 
-        except ConnectionResetError:  # 10054
-            print("Client error'd out.")
-            del addresses[client]
-        except ConnectionAbortedError:
-            del addresses[client]
-            pass
-        except UnicodeDecodeError:
-            del addresses[client]
-            pass
-        except Exception as e:
-            print(e)
-            send_error(client, errtype="Server Error", data=str(e))
+            except ConnectionResetError:  # 10054
+                print("Client error'd out.")
+                del addresses[client]
+                break
+            except ConnectionAbortedError:
+                del addresses[client]
+                break
+            except UnicodeDecodeError:
+                del addresses[client]
+                break
+            # except Exception as e:
+            #     print(e)
+            #     send_error(client, errtype="Server Error", data=str(e))
 
 
 def broadcast(msg, send_to=None):
