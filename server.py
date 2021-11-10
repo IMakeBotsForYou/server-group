@@ -269,7 +269,10 @@ def validate_user_message(client, data, has_logged_in=True):
         send_error(client, errtype="Bad Message",
                    data=f'Message type must be one of {", ".join(message_types)}')
         return False
-
+    except TypeError:
+        send_error(client, errtype="Bad message",
+                   data="Invalid Format")
+        return False
     if not has_logged_in and msg_type != "Login":
         send_error(client, errtype="Bad Request", data="You have to be logged in first.")
         return False
