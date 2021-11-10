@@ -60,6 +60,8 @@ class Mancala:
     def reset(self):
         self.move_number = 1
         self.current_player = 0
+        # goes up instead of down
+        # self.board = [4, 4, 4, 4, 4, 4, 0] * 2
         self.board = [0, 4, 4, 4, 4, 4, 4] * 2
         self.log = {
         }
@@ -71,6 +73,19 @@ class Mancala:
         :param index: The current index to jump from
         :return: The next correct index
         """
+        # goes up instead of down
+        # 0 -> skip 14
+        # 1 -> skip 7
+        # skip_bank = (2-self.current_player) * 7
+        # index += 1
+        #
+        # if skip_bank == 14 and index == 14:
+        #     index = 0
+        # if skip_bank == 7 and index == 7:
+        #     index = 8
+
+
+
         # 0 -> skip 7
         # 1 -> skip 0
         skip_bank = (1 - self.current_player) * 7
