@@ -1,8 +1,9 @@
 from imports import *
 
 
+
 def move(server):
-    # time.sleep(10)
+    time.sleep(int(input(123)))
     server.send(
         json.dumps({
             "type": "Game Move",

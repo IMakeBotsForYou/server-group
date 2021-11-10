@@ -30,7 +30,7 @@ def end_game(game_id):
     winner = game.winner
 
     for move in game.log:
-        if game.log[move]["move"] != "Surrender":
+        if game.log[move]["move"] != "Surrender" and game.log[move]["player"] is int:
             # The player is already updated. So this is unneeded and will cause an error.
             game.log[move]["player"] = users[game.log[move]["player"]]
 
@@ -545,12 +545,11 @@ def handle_client(client):  # Takes client socket as argument.
                                    additional_args=all_lobbies)
 
             except ConnectionResetError:  # 10054
-                print("Client error'd out.")
-                del addresses[client]
+                print(f"{clients[client]['name']} error'd out.")
                 del addresses[client]
                 break
             except ConnectionAbortedError:
-                del addresses[client]
+                print(f"{clients[client]['name']} error'd out.")
                 del addresses[client]
                 break
             except UnicodeDecodeError:
