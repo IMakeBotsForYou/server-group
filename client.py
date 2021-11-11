@@ -1,8 +1,8 @@
 from imports import *
 
 
-
 def move(server):
+    time.sleep(int(input(123)))
     time.sleep(int(input(123)))
     server.send(
         json.dumps({
@@ -48,7 +48,6 @@ def recv_data(server):
 
             if data["errtype"] == "Invalid Name":
                 print(data["data"])
-                server.send(input("New name > ").encode())
 
             if data["errtype"] == "Invalid Move":
                 move(server)

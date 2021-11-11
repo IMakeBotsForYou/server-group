@@ -340,11 +340,11 @@ def handle_client(client):  # Takes client socket as argument.
     try:
         taken_names = [x["name"] for x in clients.values()]
         simple_message(client, msgtype="Welcome", data="Choose a name!", additional_args={"Taken names": taken_names})
-        unparsed = client.recv(1024).decode()
         logged_in = False
         name = ""
         # ask for name until you recieve a valid message
         while not logged_in:
+            unparsed = client.recv(1024).decode()
             # This was a while True loop making the code afterwards unreachable.
             while not validate_user_message(client, unparsed, has_logged_in=False):
                 # added has_logged_in=False, default is True.
@@ -519,7 +519,7 @@ def handle_client(client):  # Takes client socket as argument.
 
                 if msg_type == "Logout":
                     simple_message(client, msgtype="Success", data="You have been logged out.")
-                    raise ConnectionAbortedError
+                    raise ConnectionAbortedError("Client Logged Out")
 
                 if msg_type == "Lobbies List":
                     dynamic = "lobby" if params['game_id'] == 1 else "lobbies"
@@ -550,14 +550,15 @@ def handle_client(client):  # Takes client socket as argument.
             except ConnectionResetError:  # 10054
                 print(f"{clients[client]['name']} error'd out.")
                 del addresses[client]
+                del clients[client]
                 break
-            except ConnectionAbortedError:
-                print(f"{clients[client]['name']} error'd out.")
+            except ConnectionAbortedError as e:
+                print(f"{clients[client]['name']} error'd out.", e)
                 del addresses[client]
+                del clients[client]
                 break
             except UnicodeDecodeError:
                 send_error(client, errtype="Bad Message", data="UnicodeDecodeError has occured.")
-
 
 def broadcast(msg, send_to=None):
     """Broadcasts a message to all the clients."""
