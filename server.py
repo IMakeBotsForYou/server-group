@@ -32,7 +32,8 @@ def end_game(game_id):
 
     winner = games[game_id]["game"].winner
     for client in games[game_id]["users"]:
-        leader_board.update({client: 0})
+        if client not in leader_board:
+            leader_board.update({client: 0})
     if winner == 2:
         leader_board[games[game_id]["users"][0]] += 1
         leader_board[games[game_id]["users"][1]] += 1
@@ -64,17 +65,17 @@ def end_game(game_id):
 
     competitors.append(games[game_id]["users"][0])
     competitors.append(games[game_id]["users"][1])
-
+    print(competitors)
     try:
         p1 = games[game_id]["users"][0]
         send(p1, first_p)
     except Exception as e:
-        print(e, 72)
+        print(e)
     try:
         p2 = games[game_id]["users"][1]
         send(p2, second_p)
     except Exception as e:
-        print(e, 77)
+        print(e)
 
 
 def send(client, obj):
@@ -202,7 +203,7 @@ def matchmaking():
 
     while params["serverup"]:
 
-        if len(competitors) == 4 and schedule != []:
+        if len(list(set(competitors))) == 4 and schedule != []:
             # get game id
 
             # clean competitor's
@@ -263,10 +264,12 @@ def accept_incoming_connections():
 
 def kick_from_game(client, message=None):
     in_game = clients[client]["current_game"]
+    print(f"game over: {games[in_game]['game'].game_over}")
     if in_game is None:
         raise AttributeError("Cannot kick a user from a game if they're not in one.")
     elif not games[in_game]["game"].game_over:
         # if the user is in a game
+
         clients[client]["current_game"] = None
         name = clients[client]["name"]
 
