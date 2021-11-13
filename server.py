@@ -10,7 +10,7 @@ params = {
     "game_id": 0,
     "verbose": True,
     "serverup": True,
-    "timeout": 1,  # 1 seconds,
+    "timeout": 2,  # 1 seconds,
     "matchmaking mode": "queue",  # "queue"
     "delay": 1
 }
@@ -69,7 +69,7 @@ def end_game(game_id):
 
     competitors.append(games[game_id]["users"][0])
     competitors.append(games[game_id]["users"][1])
-    print(competitors)
+
     try:
         p1 = games[game_id]["users"][0]
         send(p1, first_p)
@@ -506,7 +506,7 @@ def handle_client(client):  # Takes client socket as argument.
             if msg_type == "Game Move":
                 if params["matchmaking mode"] == "queue":
                     if time.time() > games[clients[client]["current_game"]]["next_message"]:
-                        games["next_message"] = time.time() + 5
+                        games[clients[client]["current_game"]]["next_message"] = time.time() + 1
                     else:
                         send_error(client, "You've made a move too soon. It is still in cooldown.",
                                    errtype="Timeout error")
