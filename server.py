@@ -29,7 +29,7 @@ def end_game(game_id):
     """
     ends the game when exception is raised.
     """
-
+    global leader_board
     winner = games[game_id]["game"].winner
     for client in games[game_id]["users"]:
         if client not in leader_board:
@@ -60,8 +60,12 @@ def end_game(game_id):
         "won": winner == 1,
         "log": game.log
     }
-    for client in leader_board:
-        print(f"{clients[client]['name']}: {leader_board[client]}")
+    # sort leaderboard
+    new_leader = dict(reversed(sorted(leader_board.items(), key=lambda item: item[1])))
+
+    leader_board = new_leader
+    for i, client in enumerate(leader_board):
+        print(f"{i + 1}.{clients[client]['name']}: {leader_board[client]}")
 
     competitors.append(games[game_id]["users"][0])
     competitors.append(games[game_id]["users"][1])
@@ -90,7 +94,7 @@ def inactivity_func(time_to_respond, client):
     if clients[client]["last_response"] <= start_time:
         # the user didn't answer
         try:
-            kick_from_game(client, f"Received no response for {time_to_respond} seconds. "
+            kick_from_game(client, f"Received no response for {time_to_respond + 1} seconds. "
                                    f"Kicked for inactivity.")
         except AttributeError as e:  # catches the error that it cannot kick a user from a game if it is not in one
             print(e)
@@ -215,10 +219,10 @@ def matchmaking():
                 idnum = params["game_id"]
                 while match[0] == schedule[k][0] or match[0] == schedule[k][1] or match[1] == schedule[k][1] or match[
                     1] == schedule[k][0]:
-                    k+= 1
+                    k += 1
 
                 match = schedule.pop(k)
-                k=0
+                k = 0
                 clients[match[0]]["current_game"] = idnum
                 clients[match[1]]["current_game"] = idnum
 
@@ -234,8 +238,6 @@ def matchmaking():
                 # notify the 2 users of game start.
                 # first user to join the queue gets first move.
                 send_board_update(idnum)
-
-
 
 
 def accept_incoming_connections():
@@ -445,8 +447,6 @@ def handle_client(client):  # Takes client socket as argument.
                                            data=f"You have successfully initialized a game with id {params['game_id'] - 1}",
                                            additional_args={"game_id": params['game_id'] - 1})
 
-                # TODO Uriiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii here you can add the tournament match_making
-
                 if msg_type == "Restart Game":
                     if clients[client]["current_game"] is not None:
                         game_id = clients[client]["current_game"]
@@ -504,12 +504,12 @@ def handle_client(client):  # Takes client socket as argument.
 
             #
             if msg_type == "Game Move":
-                #if params["matchmaking mode"] == "queue":
-                    #if time.time() > games[client["current_game"]]["next_message"]:
-                        #games["next_message"] = time.time() + 1
-                    #else:
-                        #send_error(client, "You've made a move too soon. It is still in cooldown.",
-                                   #errtype="Timeout error")
+                if params["matchmaking mode"] == "queue":
+                    if time.time() > games[clients[client]["current_game"]]["next_message"]:
+                        games["next_message"] = time.time() + 5
+                    else:
+                        send_error(client, "You've made a move too soon. It is still in cooldown.",
+                                   errtype="Timeout error")
                 play_index = data["index"]
                 if clients[client]["current_game"] is None:
                     continue
