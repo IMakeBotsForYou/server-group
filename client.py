@@ -1,13 +1,27 @@
 from imports import *
 
 
+def log(data, prefix=None):
+    if prefix is None:
+        prefix = "Log"
+    current_time = datetime.now().strftime("%H:%M:%S")
+    print(f"[{prefix}]\t{current_time}  {data}")
+
+
+def pretty_print_log(log):
+    for num, data in log.items():
+        special = data['special event']
+        special = f'\t| {special}' if special != 'nothing' else ''
+        print(f"{num}: {data['player']} played {data['move']}{special}")
+
+
 def move(server):
-    time.sleep(int(input(123)))
-    time.sleep(int(input(123)))
+    index = random.randint(1, 6)
+    print(f"--Making move {index}--")
     server.send(
         json.dumps({
             "type": "Game Move",
-            "index": random.randint(1, 6)
+            "index": index
         }).encode()
     )
 
@@ -36,20 +50,21 @@ def send_data(server):
 
 def recv_data(server):
     while 1:
-        print(server.recv(1024*10, MSG_PEEK))
+        log(data=server.recv(1024 * 10, MSG_PEEK))
         msg_length = int(server.recv(5))
         data = json.loads(server.recv(msg_length))
         if data["type"] == "Board Update":
             if data["your turn"]:
                 move(server)
-            print(data["board"])
+            log(data=data["board"])
 
         elif data["type"] == "Error":
 
             if data["errtype"] == "Invalid Name":
-                print(data["data"])
+                log(data=data["data"], prefix="Error")
 
             if data["errtype"] == "Invalid Move":
+                log(data=data["data"], prefix="Error")
                 move(server)
 
         # elif data["type"] == "Welcome":
@@ -57,10 +72,9 @@ def recv_data(server):
 
         elif data["type"] == "Game Over":
             wewon = data["won"]
-            print(data["log"])
-            if wewon:
-                print("yay!")
-                # sock.send(json.dumps({"type": "Restart Game"}).encode())
+            # log(data=data["log"], prefix="Game Log")
+            pretty_print_log(data["log"])
+            # sock.send(json.dumps({"type": "Restart Game"}).encode())
 
 
 if __name__ == '__main__':

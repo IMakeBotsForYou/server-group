@@ -26,19 +26,23 @@ game_logs = {
 def end_game(game_id):
     game = games[game_id]["game"]
 
-    users = [clients[client]["name"] for client in games[game_id]["users"]]
+    usernames = [clients[client]["name"] for client in games[game_id]["users"]]
     winner = game.winner
 
-    for move in game.log:
-        if game.log[move]["move"] != "Surrender" and game.log[move]["player"] is int:
-            # The player is already updated. So this is unneeded and will cause an error.
-            game.log[move]["player"] = users[game.log[move]["player"]]
+    for move_num, move in game.log.items():
+
+        # If the player is 1, this will remove 7 from the move. 13->6, 8->1
+        adjust_index = (move["player"] % 2)*7
+        move["move"] -= adjust_index
+
+        move["player"] = usernames[move["player"]]
 
         # Change "Player A/B won" to the user's name.
-        if game.log[move]["special event"][-4:] == 'won.':
+        if move["special event"][-4:] == 'won.':
             winner_socket = games[game_id]["users"][winner]
             # using regex bc there might be a special event like rule 3 or extra move as well in the mix :)
-            game.log[move]["special event"] = re.sub(game.log[move]["special event"], 'A|B', f"{clients[winner_socket]['name']} won.")
+            move["special event"] = re.sub(move["special event"], 'A|B', f"{clients[winner_socket]['name']} won.")
+
 
     first_p = {
         "type": "Game Over",
@@ -393,7 +397,7 @@ def handle_client(client):  # Takes client socket as argument.
                 buffer = client.recv(1024, MSG_PEEK)
                 if buffer != b'':
                     # Maya Vaksin's client is spamming the damn console
-                    print(f"{clients[client]['name']}: {buffer} @ {time.ctime(time.time())}")
+                    print(f"{clients[client]['name']}: {buffer} @ {datetime.now().strftime('%H:%M:%S')}")
                 unparsed = client.recv(1024)
                 valid = validate_user_message(client, unparsed)
 
@@ -494,7 +498,7 @@ def handle_client(client):  # Takes client socket as argument.
                     if clients[client]["current_game"] is None:
                         continue
                     try:
-                        games[clients[client]["current_game"]]["game"].make_move(play_index, adjust_index=True)
+                        games[clients[client]["current_game"]]["game"].make_move(play_index, adjust_index=True, verbose=True)
                     except ValueError:
                         send_error(client, "You've made an invalid move. It is still your turn.",
                                    errtype="Invalid Move")
@@ -535,6 +539,8 @@ def handle_client(client):  # Takes client socket as argument.
                             return "Tie"
                         users = [get_name(c) for c in games[game_id]["users"]]
                         winner = games[game_id]["game"].winner
+                        if winner is None:
+                            return "Unfinished"
                         return users[winner] + " won."
 
                     for game_id in games:
@@ -559,7 +565,8 @@ def handle_client(client):  # Takes client socket as argument.
                 break
             except UnicodeDecodeError:
                 send_error(client, errtype="Bad Message", data="UnicodeDecodeError has occured.")
-
+            except KeyError:
+                send_error(client, errtype="Internal Error", data="Some player might have disconnected, which might have caused a KeyError.")
 def broadcast(msg, send_to=None):
     """Broadcasts a message to all the clients."""
     if not send_to:
