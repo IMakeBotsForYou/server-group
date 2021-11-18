@@ -12,6 +12,7 @@ params = {
     "verbose": True,
     "serverup": True,
     "timeout": 5,  # 5 seconds,
+    "delay": 1,
     "matchmaking mode": "lobbies"
 }
 queue = []
@@ -85,7 +86,9 @@ def inactivity_func(time_to_respond, client):
             print(e)
 
 
-def send_board_update(game_id):
+def send_board_update(game_id, seconds=0):
+    time.sleep(seconds)
+    games[game_id]["cooldown"] = False
     board = games[game_id]["game"].board
     flipped_board = mancala.flip_board(board)
     current_player = games[game_id]["game"].current_player
@@ -169,7 +172,8 @@ def initialize_game(host, is_slow_game=False):
     games[game_id] = {
         "game": Game(game_id),
         "users": [host],
-        "slow_game": is_slow_game
+        "slow_game": is_slow_game,
+        "cooldown": False
     }
     clients[host]["current_game"] = game_id
     params["game_id"] += 1
@@ -294,6 +298,8 @@ def validate_user_message(client, data, has_logged_in=True):
             return False
 
     elif msg_type == "Game Move":
+        if clients[client]["current_game"] is None:
+            return False
         try:
             index = data["index"]
             assert isinstance(index, int)
@@ -302,6 +308,14 @@ def validate_user_message(client, data, has_logged_in=True):
             return False
         except AssertionError:
             send_error(client, errtype="Bad Message", data="'index' field must be int.")
+            return False
+
+        try:
+            game_id = clients[client]["current_game"]
+            if games[game_id]["cooldown"]:
+                send_error(client, "The game is still in cooldown.", errtype="Time Error")
+                return False
+        except KeyError:
             return False
 
     elif msg_type == "Join Game":
@@ -314,7 +328,6 @@ def validate_user_message(client, data, has_logged_in=True):
         except AssertionError:
             send_error(client, errtype="Bad Message", data="'game id' field must be int.")
             return False
-
     elif msg_type == "Start Game":
         if "slow_game" in data:
             if not isinstance(data["slow_game"], bool):
@@ -495,10 +508,9 @@ def handle_client(client):  # Takes client socket as argument.
                 #
                 if msg_type == "Game Move":
                     play_index = data["index"]
-                    if clients[client]["current_game"] is None:
-                        continue
                     try:
-                        games[clients[client]["current_game"]]["game"].make_move(play_index, adjust_index=True, verbose=True)
+                        game_id = clients[client]["current_game"]
+                        games[game_id]["game"].make_move(play_index, adjust_index=True, verbose=True)
                     except ValueError:
                         send_error(client, "You've made an invalid move. It is still your turn.",
                                    errtype="Invalid Move")
@@ -519,7 +531,8 @@ def handle_client(client):  # Takes client socket as argument.
                         """
                         send_error(client, "Something went wrong.", errtype="Invalid Move")
                     else:
-                        send_board_update(clients[client]["current_game"])
+                        _thread.start_new_thread(send_board_update, (clients[client]["current_game"], params["delay"]))
+                        # send_board_update(clients[client]["current_game"])
 
                 if msg_type == "Logout":
                     simple_message(client, msgtype="Success", data="You have been logged out.")
