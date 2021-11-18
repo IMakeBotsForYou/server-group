@@ -28,7 +28,7 @@ def move(server):
 
 def send_data(server):
     while 1:
-        command = input("> ").lower()
+        command = input().lower()
         if command in ["start", "create"]:
             server.send(json.dumps({"type": "Start Game", "slow_game": False}).encode())
         elif command in ["restart", "reset"]:
@@ -50,9 +50,11 @@ def send_data(server):
 
 def recv_data(server):
     while 1:
-        log(data=server.recv(1024 * 10, MSG_PEEK))
+        log(data=server.recv(1024 * 10, MSG_PEEK), prefix="Data")
         msg_length = int(server.recv(5))
         data = json.loads(server.recv(msg_length))
+        log(data=json.dumps(data, indent=4), prefix="JSON")
+        print()
         if data["type"] == "Board Update":
             if data["your turn"]:
                 move(server)

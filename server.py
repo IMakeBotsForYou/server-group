@@ -1,10 +1,6 @@
 """Server for multi-threaded (asynchronous) chat application."""
-import mancala
-from mancala import Mancala as Game
-import _thread
-import re
 from imports import *
-
+import _thread
 # global parameters
 matchmaking_modes = ["lobbies", "fast_queue"]
 params = {
@@ -22,6 +18,12 @@ games = {
 game_logs = {
 
 }
+
+def log(data, prefix=None):
+    if prefix is None:
+        prefix = "Log"
+    current_time = datetime.now().strftime("%H:%M:%S")
+    print(f"[{prefix}]\t{current_time}  {data}")
 
 
 def end_game(game_id):
@@ -42,7 +44,7 @@ def end_game(game_id):
         if move["special event"][-4:] == 'won.':
             winner_socket = games[game_id]["users"][winner]
             # using regex bc there might be a special event like rule 3 or extra move as well in the mix :)
-            move["special event"] = re.sub(move["special event"], 'A|B', f"{clients[winner_socket]['name']} won.")
+            move["special event"] = sub(move["special event"], 'A|B', f"{clients[winner_socket]['name']} won.")
 
 
     first_p = {
@@ -60,13 +62,14 @@ def end_game(game_id):
         p1 = games[game_id]["users"][0]
         send(p1, first_p)
     except Exception as e:
-        print(e)
+        log(data=f"end_game(), line 65 | {e}",prefix="Err")
+        # print(e)
     try:
         p2 = games[game_id]["users"][1]
         send(p2, second_p)
     except Exception as e:
-        print(e)
-
+        log(data=f"end_game(), line 71 | {e}",prefix="Err")
+        # print(e)
 
 def send(client, obj):
     obj_str = json.dumps(obj).encode()
@@ -77,14 +80,17 @@ def send(client, obj):
 def inactivity_func(time_to_respond, client):
     start_time = time.time()
     time.sleep(time_to_respond)
-    if clients[client]["last_response"] <= start_time:
-        # the user didn't answer
-        try:
-            kick_from_game(client, f"Received no response for {time_to_respond} seconds. "
-                                   f"Kicked for inactivity.")
-        except AttributeError as e:  # catches the error that it cannot kick a user from a game if it is not in one
-            print(e)
-
+    try:
+        if clients[client]["last_response"] <= start_time:
+            # the user didn't answer
+            try:
+                kick_from_game(client, f"Received no response for {time_to_respond} seconds. "
+                                       f"Kicked for inactivity.")
+            except AttributeError as e:  # catches the error that it cannot kick a user from a game if it is not in one
+                log(data=f"inactivity_func(), line 90 | {e}", prefix="Err")
+                # print(e)
+    except KeyError:
+        pass
 
 def send_board_update(game_id, seconds=0):
     time.sleep(seconds)
@@ -112,12 +118,15 @@ def send_board_update(game_id, seconds=0):
         p1 = games[game_id]["users"][0]
         send(p1, first_p)
     except Exception as e:
-        print(e)
+        # print(e)
+        log(data=f"send_board_update(), line 122 | {e}", prefix="Err")
     try:
         p2 = games[game_id]["users"][1]
         send(p2, second_p)
     except Exception as e:
-        print(e)
+        # print(e)
+        log(data=f"send_board_update(), line 122 | {e}", prefix="Err")
+
 
 
 def send_error(user, data, errtype="None"):
@@ -217,11 +226,13 @@ def accept_incoming_connections():
         # Accept the user
         client, client_address = SERVER.accept()
 
-        print(f"{client_address} has connected.")
+        # print(f"{client_address} has connected.")
+        log(data=f"{client_address} has connected.", prefix="Login")
         addresses[client] = client_address
         _thread.start_new_thread(handle_client, (client,))
         # Thread(target=handle_client, args=(client,), daemon=True).start()
-        print(f"Starting thread for {client_address}")
+        # print(f"Starting thread for {client_address}")
+        log(data=f"Starting thread for {client_address}", prefix="Login")
 
 
 def kick_from_game(client, message=None):
@@ -257,8 +268,8 @@ def kick_from_game(client, message=None):
         simple_message(players[0], msgtype="Notification",
                        data=f"{name} has quit your Lobby.")
 
-        print(f"{name} has been kicked from lobby #{in_game}")
-
+        # print(f"{name} has been kicked from lobby #{in_game}")
+        log(data=f"{name} has been kicked from lobby #{in_game}", prefix="Kick")
 
 def validate_user_message(client, data, has_logged_in=True):
     message_types = ["Login", "Logout", "Lobbies List", "Game Move", "Quit Game", "Join Game", "Start Game", "Restart Game"]
@@ -376,10 +387,11 @@ def handle_client(client):  # Takes client socket as argument.
                 send(client,{"type":"Login Successfull"})
                 logged_in = True
 
-        print(f"{client}\n has registered as {name}")
+        # print(f"{client}\n has registered as {name}")
 
-    except ConnectionResetError:  # 10054
-        print("Client error'd out.")
+    except ConnectionResetError:  # 10054 A
+        # print("Client error'd out.")
+        log(data=f"{clients[client]['name']} error'd out. ConnectionResetError handle_client() after 10054 A", prefix="Err")
         del addresses[client]
     except ConnectionAbortedError:
         # user checking ports
@@ -410,14 +422,16 @@ def handle_client(client):  # Takes client socket as argument.
                 buffer = client.recv(1024, MSG_PEEK)
                 if buffer != b'':
                     # Maya Vaksin's client is spamming the damn console
-                    print(f"{clients[client]['name']}: {buffer} @ {datetime.now().strftime('%H:%M:%S')}")
+                    # print(f"{datetime.now().strftime('%H:%M:%S')} : {clients[client]['name']}: {buffer}")
+                    log(data=f"{clients[client]['name']}: {buffer}", prefix="Data")
                 unparsed = client.recv(1024)
                 valid = validate_user_message(client, unparsed)
-
                 if not valid:
                     continue
 
                 data = json.loads(unparsed)
+                log(data=json.dumps(data, indent=4), prefix="JSON")
+
                 msg_type = data["type"]
                 # At this point we may assume that we received a valid message from the user.
 
@@ -566,13 +580,15 @@ def handle_client(client):  # Takes client socket as argument.
                                    data=f"Here are all of the lobbies. There are currently {params['game_id']} {dynamic}.",
                                    additional_args=all_lobbies)
 
-            except ConnectionResetError:  # 10054
-                print(f"{clients[client]['name']} error'd out.")
+            except ConnectionResetError:  # 10054 B
+                # print(f"{clients[client]['name']} error'd out.")
+                log(data=f"{clients[client]['name']} error'd out. ConnectionResetError handle_client after 10054 B ", prefix="Err")
                 del addresses[client]
                 del clients[client]
                 break
-            except ConnectionAbortedError as e:
-                print(f"{clients[client]['name']} error'd out.", e)
+            except ConnectionAbortedError as e: # ERR ID ABORT
+                # print(f"{clients[client]['name']} error'd out.")
+                log(data=f"{clients[client]['name']} error'd out. ConnectionAbortedError handle_client after ERR ID ABORT {e}", prefix="Err")
                 del addresses[client]
                 del clients[client]
                 break
@@ -580,6 +596,7 @@ def handle_client(client):  # Takes client socket as argument.
                 send_error(client, errtype="Bad Message", data="UnicodeDecodeError has occured.")
             except KeyError:
                 send_error(client, errtype="Internal Error", data="Some player might have disconnected, which might have caused a KeyError.")
+
 def broadcast(msg, send_to=None):
     """Broadcasts a message to all the clients."""
     if not send_to:
@@ -588,7 +605,8 @@ def broadcast(msg, send_to=None):
         try:
             send(sock, msg)
         except ConnectionResetError:  # 10054
-            print("Client has disconnected")
+            log(data="Client has disconnected", prefix="Err")
+            # print("Client has disconnected")
 
 
 if __name__ == '__main__':
