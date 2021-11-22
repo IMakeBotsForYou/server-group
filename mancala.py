@@ -91,9 +91,9 @@ class Mancala:
         skip_bank = (1 - self.current_player) * 7
         index -= 1
 
-        if skip_bank == 0 and index == 0:
+        if skip_bank == 7 and index == 0:
             index = 13
-        if skip_bank == 7 and index == 7:
+        if skip_bank == 0 and index == 7:
             index = 8
 
         return index
@@ -152,19 +152,22 @@ class Mancala:
         :param adjust_index: Automatically flip the index (flip the board)
         :return:
         """
+        print(1, current_index)
         if adjust_index:
             current_index += self.current_player * 7
-
+        print(2, current_index)
         self.validate_move(current_index)
         save_start = current_index
 
         amount = self.board[current_index]
+        print(f"{amount=}")
         self.board[current_index] = 0
         while amount >= 1:
             """Progress (counter-clockwise) and lay down the marbles"""
             current_index = self.loop(current_index)
             self.board[current_index] += 1
             amount -= 1
+            print(3, current_index)
         """ Rule 3. If you land in an empty (now 1) hole, the enemy takes
             all the marbles in the matching hole on your side into your bank."""
         rule_3 = False
@@ -172,6 +175,7 @@ class Mancala:
         if self.board[current_index] == 1 and current_index % 7 != 0:
             # find matching hole
             matching_hole = get_matching_hole(current_index)
+            print(matching_hole, current_index)
             if self.board[matching_hole] != 0:
                 rule_3 = True
                 # move all the marbles from the matching hole to the
@@ -263,4 +267,10 @@ class TestMancala(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    unittest.main()
+    # unittest.main()
+    board = Mancala(0)
+    board.make_move(5, adjust_index=True)
+    board.make_move(1, adjust_index=True)
+    board.make_move(5, adjust_index=True)
+    board.make_move(3, adjust_index=True)
+    board.make_move(1, adjust_index=True)

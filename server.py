@@ -529,9 +529,11 @@ def handle_client(client):  # Takes client socket as argument.
                         send_error(client, "You've made an invalid move. It is still your turn.",
                                    errtype="Invalid Move")
                     except IndexError as e:
-                        # Selected an empty hole.
-                        send_error(client, str(e) + " It is still your turn.", errtype="Invalid Move")
+                        # Selected an empty hole. # GAMEMOVE INDEXERROR
+                        log(prefix="Err", data="User sent bad index, GAMEMOVE INDEXERROR." + f"[{play_index} is empty and thus invalid, it is still your turn.]")
+                        send_error(client, f"{play_index} is empty and thus invalid, it is still your turn.", errtype="Invalid Move")
                     except TypeError:
+                        log(prefix="Err", data="User sent bad value, GAMEMOVE TYPEERROR. [Moves have to be ints. It is still your turn.]")
                         send_error(client, "Moves have to be ints. It is still your turn.", errtype="Invalid Move")
                     except AttributeError:
                         # Someone won
@@ -593,6 +595,7 @@ def handle_client(client):  # Takes client socket as argument.
                 del clients[client]
                 break
             except UnicodeDecodeError:
+                log(prefix="Err", data="User sent bad message, UnicodeDecodeError has occured.")
                 send_error(client, errtype="Bad Message", data="UnicodeDecodeError has occured.")
             except KeyError:
                 send_error(client, errtype="Internal Error", data="Some player might have disconnected, which might have caused a KeyError.")
