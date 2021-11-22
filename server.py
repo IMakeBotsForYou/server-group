@@ -28,7 +28,6 @@ def log(data, prefix=None):
 
 def end_game(game_id):
     game = games[game_id]["game"]
-
     usernames = [clients[client]["name"] for client in games[game_id]["users"]]
     winner = game.winner
 
@@ -45,7 +44,6 @@ def end_game(game_id):
             winner_socket = games[game_id]["users"][winner]
             # using regex bc there might be a special event like rule 3 or extra move as well in the mix :)
             move["special event"] = sub(move["special event"], 'A|B', f"{clients[winner_socket]['name']} won.")
-
 
     first_p = {
         "type": "Game Over",
@@ -391,7 +389,7 @@ def handle_client(client):  # Takes client socket as argument.
 
     except ConnectionResetError:  # 10054 A
         # print("Client error'd out.")
-        log(data=f"{clients[client]['name']} error'd out. ConnectionResetError handle_client() after 10054 A", prefix="Err")
+        log(data=f"Client error'd out. ConnectionResetError handle_client() after 10054 A", prefix="Err")
         del addresses[client]
     except ConnectionAbortedError:
         # user checking ports
@@ -537,6 +535,7 @@ def handle_client(client):  # Takes client socket as argument.
                         send_error(client, "Moves have to be ints. It is still your turn.", errtype="Invalid Move")
                     except AttributeError:
                         # Someone won
+                        log(prefix="WON", data=f"Lobby #{clients[client]['current_game']} has ended its game.")
                         end_game(clients[client]["current_game"])
                     except KeyError:
                         """
@@ -547,7 +546,7 @@ def handle_client(client):  # Takes client socket as argument.
                         """
                         send_error(client, "Something went wrong.", errtype="Invalid Move")
                     else:
-                        _thread.start_new_thread(send_board_update, (clients[client]["current_game"], params["delay"]))
+                        _thread.start_new_thread(send_board_update, (clients[client]["current_game"], 0))
                         # send_board_update(clients[client]["current_game"])
 
                 if msg_type == "Logout":
@@ -570,7 +569,10 @@ def handle_client(client):  # Takes client socket as argument.
                         winner = games[game_id]["game"].winner
                         if winner is None:
                             return "Unfinished"
-                        return users[winner] + " won."
+                        try:
+                            return users[winner] + " won."
+                        except IndexError:
+                            return games[game_id]["game"].winner + " won."
 
                     for game_id in games:
                         all_lobbies[game_id] = {
