@@ -28,9 +28,26 @@ def move(server):
 
 def send_data(server):
     while 1:
-        command = input().lower()
+        fullcommand = input().lower()
+        if len(fullcommand.split(" ")) == 0:
+            continue
+        command = fullcommand.split(" ")[0]
+        args = [arg.strip(' \t\n\r') for arg in fullcommand.split(" ")][1:]
+
         if command in ["start", "create"]:
-            server.send(json.dumps({"type": "Start Game", "slow_game": False}).encode())
+            slow, delay = False, False
+            try:
+                slow, delay = args[:2]  # there might be more args we don't care about.
+            except:
+                if len(args) == 1:
+                    delay = False
+                elif len(args) == 0:
+                    slow, delay = False, False
+
+            slow = True if slow == 't' else False
+            delay = True if delay == 't' else False
+            server.send(json.dumps({"type": "Start Game", "slow_game": slow, "delay": delay}).encode())
+
         elif command in ["restart", "reset"]:
             server.send(json.dumps({"type": "Restart Game"}).encode())
         elif command == "join":

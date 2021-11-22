@@ -30,44 +30,51 @@ def end_game(game_id):
     game = games[game_id]["game"]
     usernames = [clients[client]["name"] for client in games[game_id]["users"]]
     winner = game.winner
-
-    for move_num, move in game.log.items():
+    try:
+        for move_num, move in game.log.items():
 
         # If the player is 1, this will remove 7 from the move. 13->6, 8->1
-        adjust_index = (move["player"] % 2)*7
-        move["move"] -= adjust_index
+            adjust_index = (move["player"] % 2)*7
+            move["move"] -= adjust_index
 
-        move["player"] = usernames[move["player"]]
+            move["player"] = usernames[move["player"]]
 
-        # Change "Player A/B won" to the user's name.
-        if move["special event"][-4:] == 'won.':
-            winner_socket = games[game_id]["users"][winner]
-            # using regex bc there might be a special event like rule 3 or extra move as well in the mix :)
-            move["special event"] = sub(move["special event"], 'A|B', f"{clients[winner_socket]['name']} won.")
+            # Change "Player A/B won" to the user's name.
+            if move["special event"][-4:] == 'won.':
+                winner_socket = games[game_id]["users"][winner]
+                # using regex bc there might be a special event like rule 3 or extra move as well in the mix :)
+                move["special event"] = sub(move["special event"], 'A|B', f"{clients[winner_socket]['name']} won.")
 
-    first_p = {
-        "type": "Game Over",
-        "won": winner == 0,
-        "log": game.log
-    }
-    second_p = {
-        "type": "Game Over",
-        "won": winner == 1,
-        "log": game.log
-    }
-
-    try:
-        p1 = games[game_id]["users"][0]
-        send(p1, first_p)
-    except Exception as e:
-        log(data=f"end_game(), line 65 | {e}",prefix="Err")
-        # print(e)
-    try:
-        p2 = games[game_id]["users"][1]
-        send(p2, second_p)
-    except Exception as e:
-        log(data=f"end_game(), line 71 | {e}",prefix="Err")
-        # print(e)
+    except TypeError:
+        pass
+    else:
+        first_p = {
+            "type": "Game Over",
+            "won": winner == 0,
+            "log": game.log
+        }
+        second_p = {
+            "type": "Game Over",
+            "won": winner == 1,
+            "log": game.log
+        }
+        log(prefix="END", data="Trying to send logs")
+        try:
+            p1 = games[game_id]["users"][0]
+            send(p1, first_p)
+        except Exception as e:
+            log(data=f"end_game(), line 65 | {e}",prefix="Err")
+            # print(e)
+        else:
+            log(prefix="SUCCESS", data=f"Sent to {clients[p1]['name']}")
+        try:
+            p2 = games[game_id]["users"][1]
+            send(p2, second_p)
+        except Exception as e:
+            log(data=f"end_game(), line 71 | {e}",prefix="Err")
+            # print(e)
+        else:
+            log(prefix="SUCCESS", data=f"Sent to {clients[p2]['name']}")
 
 def send(client, obj):
     obj_str = json.dumps(obj).encode()
@@ -174,13 +181,13 @@ def join_game(game_id, user_socket):
         raise IndexError(f"This game has already began, between {a} and {b}")
 
 
-def initialize_game(host, is_slow_game=False):
+def initialize_game(host, is_slow_game=False,delay=False):
     game_id = params["game_id"]
     games[game_id] = {
         "game": Game(game_id),
         "users": [host],
         "slow_game": is_slow_game,
-        "cooldown": False
+        "cooldown": delay
     }
     clients[host]["current_game"] = game_id
     params["game_id"] += 1
@@ -343,6 +350,11 @@ def validate_user_message(client, data, has_logged_in=True):
                 send_error(client, errtype="Bad Message", data="'slow_game' field needs to be a boolean")
                 return False
 
+        if "delay" in data:
+            if not isinstance(data["delay"], bool):
+                send_error(client, errtype="Bad Message", data="'delay' field needs to be a boolean")
+                return False
+
     return True
 
 
@@ -441,22 +453,24 @@ def handle_client(client):  # Takes client socket as argument.
                             send_error(client, errtype="Bad Request",
                                        data="You are already in a lobby. To create a new one leave your current one.")
                         else:
+                            slow_game, delay = False, False
                             if "slow_game" in data:
-                                initialize_game(client, data["slow_game"])
-                                if data["slow_game"]:
-                                    message = f"You have successfully initialized a game with id {params['game_id'] - 1}, "\
-                                           f"the game doesn't have a time response limit"
-                                else:
-                                    message = f"You have successfully initialized a game with id {params['game_id'] - 1}, "\
-                                           f"the game has a {params['timeout']}s timeout."
-                                simple_message(client, msgtype="Success",
-                                               data=message,
-                                               additional_args={"game_id": params['game_id'] - 1})
-                            else:
-                                initialize_game(client)
-                                simple_message(client, msgtype="Success",
-                                               data=f"You have successfully initialized a game with id {params['game_id']}",
-                                               additional_args={"game_id": params['game_id'] - 1})
+                                slow_game = data["slow_game"]
+                            if "delay" in data:
+                                delay = data["delay"]
+
+                            initialize_game(client, is_slow_game=slow_game, delay=delay)
+                            message = f"You have successfully initialized a game with id {params['game_id'] - 1}."
+
+                            if slow_game:
+                                message += f"  The game doesn't have a time response limit."
+
+                            if delay:
+                                message += f"  The game has a {params['delay']}s delay between each turn."
+
+                            simple_message(client, msgtype="Success",
+                                           data=message,
+                                           additional_args={"game_id": params['game_id'] - 1})
 
                     # TODO Uriiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii here you can add the tournament match_making
                     if msg_type == "Restart Game":
@@ -546,7 +560,8 @@ def handle_client(client):  # Takes client socket as argument.
                         """
                         send_error(client, "Something went wrong.", errtype="Invalid Move")
                     else:
-                        _thread.start_new_thread(send_board_update, (clients[client]["current_game"], 0))
+                        cooldown = games[game_id]['cooldown']
+                        _thread.start_new_thread(send_board_update, (clients[client]["current_game"], params['delay'] if cooldown else 0))
                         # send_board_update(clients[client]["current_game"])
 
                 if msg_type == "Logout":
