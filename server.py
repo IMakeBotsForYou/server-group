@@ -67,6 +67,7 @@ def end_game(game_id):
             # print(e)
         else:
             log(prefix="SUCCESS", data=f"Sent to {clients[p1]['name']}")
+            log(prefix="JSONLOG", data=f"{len(json.dumps(first_p))}\t{first_p}")
         try:
             p2 = games[game_id]["users"][1]
             send(p2, second_p)
@@ -75,6 +76,8 @@ def end_game(game_id):
             # print(e)
         else:
             log(prefix="SUCCESS", data=f"Sent to {clients[p2]['name']}")
+            log(prefix="JSONLOG", data=f"{len(json.dumps(second_p))}\t{second_p}")
+
 
 def send(client, obj):
     obj_str = json.dumps(obj).encode()
@@ -98,8 +101,8 @@ def inactivity_func(time_to_respond, client):
         pass
 
 def send_board_update(game_id, seconds=0):
+    games[game_id]["accepting"] = False
     time.sleep(seconds)
-    games[game_id]["cooldown"] = False
     board = games[game_id]["game"].board
     flipped_board = mancala.flip_board(board)
     current_player = games[game_id]["game"].current_player
@@ -132,7 +135,7 @@ def send_board_update(game_id, seconds=0):
         # print(e)
         log(data=f"send_board_update(), line 122 | {e}", prefix="Err")
 
-
+    games[game_id]["accepting"] = True
 
 def send_error(user, data, errtype="None"):
     jsonobj = {
@@ -187,7 +190,8 @@ def initialize_game(host, is_slow_game=False,delay=False):
         "game": Game(game_id),
         "users": [host],
         "slow_game": is_slow_game,
-        "cooldown": delay
+        "cooldown": delay,
+        "accepting": True
     }
     clients[host]["current_game"] = game_id
     params["game_id"] += 1
@@ -536,7 +540,17 @@ def handle_client(client):  # Takes client socket as argument.
                     play_index = data["index"]
                     try:
                         game_id = clients[client]["current_game"]
-                        games[game_id]["game"].make_move(play_index, adjust_index=True, verbose=True)
+
+                        if games[game_id]["accepting"]:
+                            games[game_id]["game"].make_move(play_index, adjust_index=True, verbose=True)
+                        else:
+                            send_error(client, f"The game has a delay of {params['delay']}s between turns. Wait until the delay is over.",
+                                       errtype="Bad Request")
+                            continue
+
+                        if games[game_id]["game"].game_over:
+                            raise AttributeError
+
                     except ValueError:
                         send_error(client, "You've made an invalid move. It is still your turn.",
                                    errtype="Invalid Move")
@@ -544,9 +558,13 @@ def handle_client(client):  # Takes client socket as argument.
                         # Selected an empty hole. # GAMEMOVE INDEXERROR
                         log(prefix="Err", data="User sent bad index, GAMEMOVE INDEXERROR." + f"[{play_index} is empty and thus invalid, it is still your turn.]")
                         send_error(client, f"{play_index} is empty and thus invalid, it is still your turn.", errtype="Invalid Move")
-                    except TypeError:
-                        log(prefix="Err", data="User sent bad value, GAMEMOVE TYPEERROR. [Moves have to be ints. It is still your turn.]")
-                        send_error(client, "Moves have to be ints. It is still your turn.", errtype="Invalid Move")
+                    except TypeError as e:
+                        print(e)
+                        # I don't know what this error is, but it's probably not a non-int value because that's taken care off
+                        # in the validate function in the beginning.
+
+                        # log(prefix="Err", data="User sent bad value, GAMEMOVE TYPEERROR.")
+                        # send_error(client, "Moves have to be ints. It is still your turn.", errtype="Invalid Move")
                     except AttributeError:
                         # Someone won
                         log(prefix="WON", data=f"Lobby #{clients[client]['current_game']} has ended its game.")
