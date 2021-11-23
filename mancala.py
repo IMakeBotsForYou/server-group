@@ -98,7 +98,7 @@ class Mancala:
             index = 13
         if skip_bank == 7 and index == 7:
             index = 6
-        print(index)
+
         return index
 
     def validate_move(self, index, player=None):
@@ -269,7 +269,4 @@ class TestMancala(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    # unittest.main()
-    b = Mancala(0)
-    b.board = [14, 0, 0, 0, 0, 15, 0, 18, 0, 0, 1, 0, 0, 0, 0]
-    b.make_move(5)
+    unittest.main()
