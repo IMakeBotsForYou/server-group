@@ -91,11 +91,14 @@ class Mancala:
         skip_bank = (1 - self.current_player) * 7
         index -= 1
 
+        if index == -1:
+            index = 13
+
         if skip_bank == 0 and index == 0:
             index = 13
         if skip_bank == 7 and index == 7:
-            index = 8
-
+            index = 6
+        print(index)
         return index
 
     def validate_move(self, index, player=None):
