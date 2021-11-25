@@ -20,6 +20,12 @@ game_logs = {
 }
 
 def log(data, prefix=None):
+    #   Pretty print
+    #   data: The content to print
+    #   prefix: will appear as [prefix] before the message
+    #   Example:
+    #   [Log] 12:00:00 your message
+
     if prefix is None:
         prefix = "Log"
     current_time = datetime.now().strftime("%H:%M:%S")
@@ -27,14 +33,18 @@ def log(data, prefix=None):
 
 
 def end_game(game_id):
+    # This function is run when a game is ended.
+    # It sends the log to both of the players in the Game Over message.
+
     game = games[game_id]["game"]
     usernames = [clients[client]["name"] for client in games[game_id]["users"]]
     winner = game.winner
+    # Adjust the log so it includes player names and adjusted indexes
     try:
         for move_num, move in game.log.items():
 
-        # If the player is 1, this will remove 7 from the move. 13->6, 8->1
-            adjust_index = (move["player"] % 2)*7
+            # If the player is 1, this will remove 7 from the move. 13->6, 8->1
+            adjust_index = move["player"]*7
             move["move"] -= adjust_index
 
             move["player"] = usernames[move["player"]]
@@ -46,49 +56,55 @@ def end_game(game_id):
                 move["special event"] = sub(move["special event"], 'A|B', f"{clients[winner_socket]['name']} won.")
 
     except TypeError:
-        pass
+        log(prefix="Err", data="Error adjusting logs. Sending them as is.")
+    # else:
+    first_p = {
+        "type": "Game Over",
+        "won": winner == 0,
+        "log": game.log
+    }
+    second_p = {
+        "type": "Game Over",
+        "won": winner == 1,
+        "log": game.log
+    }
+    log(prefix="END", data="Trying to send logs")
+    try:
+        p1 = games[game_id]["users"][0]
+        send(p1, first_p)
+    except Exception as e:
+        log(data=f"end_game(), line 65 | {e}",prefix="Err")
+        # print(e)
     else:
-        first_p = {
-            "type": "Game Over",
-            "won": winner == 0,
-            "log": game.log
-        }
-        second_p = {
-            "type": "Game Over",
-            "won": winner == 1,
-            "log": game.log
-        }
-        log(prefix="END", data="Trying to send logs")
-        try:
-            p1 = games[game_id]["users"][0]
-            send(p1, first_p)
-        except Exception as e:
-            log(data=f"end_game(), line 65 | {e}",prefix="Err")
-            # print(e)
-        else:
-            log(prefix="SUCCESS", data=f"Sent to {clients[p1]['name']}")
-            log(prefix="JSONLOG", data=f"{len(json.dumps(first_p))}\t{first_p}")
-        try:
-            p2 = games[game_id]["users"][1]
-            send(p2, second_p)
-        except Exception as e:
-            log(data=f"end_game(), line 71 | {e}",prefix="Err")
-            # print(e)
-        else:
-            log(prefix="SUCCESS", data=f"Sent to {clients[p2]['name']}")
-            log(prefix="JSONLOG", data=f"{len(json.dumps(second_p))}\t{second_p}")
+        log(prefix="SUCCESS", data=f"Sent to {clients[p1]['name']}")
+        log(prefix="JSONLOG", data=f"{len(json.dumps(first_p))}\t{first_p}")
+    try:
+        p2 = games[game_id]["users"][1]
+        send(p2, second_p)
+    except Exception as e:
+        log(data=f"end_game(), line 71 | {e}",prefix="Err")
+        # print(e)
+    else:
+        log(prefix="SUCCESS", data=f"Sent to {clients[p2]['name']}")
+        log(prefix="JSONLOG", data=f"{len(json.dumps(second_p))}\t{second_p}")
 
 
 def send(client, obj):
+    # Sends json object to client
+    # Get JSON
     obj_str = json.dumps(obj).encode()
+    # Get message length and the OBJ
     data = msg_len(obj_str, 5).encode() + obj_str
+    # Send
     client.send(data)
 
 
 def inactivity_func(time_to_respond, client):
+    # Wait X seconds, then check if user has responded.
     start_time = time.time()
     time.sleep(time_to_respond)
     try:
+        # Check if user responded
         if clients[client]["last_response"] <= start_time:
             # the user didn't answer
             try:
@@ -101,9 +117,13 @@ def inactivity_func(time_to_respond, client):
         pass
 
 def send_board_update(game_id, seconds=0):
+    # Sends the board to both users,
+    # along with if it's their turn or not.
     games[game_id]["accepting"] = False
+    # delay game
     time.sleep(seconds)
     board = games[game_id]["game"].board
+    # FLip board for second player
     flipped_board = mancala.flip_board(board)
     current_player = games[game_id]["game"].current_player
 
@@ -138,6 +158,7 @@ def send_board_update(game_id, seconds=0):
     games[game_id]["accepting"] = True
 
 def send_error(user, data, errtype="None"):
+    # Send ERROR message to user
     jsonobj = {
         "type": "Error",
         "errtype": errtype,
@@ -147,6 +168,7 @@ def send_error(user, data, errtype="None"):
 
 
 def simple_message(user, msgtype, data="", additional_args=None):
+    # Generate a simple message JSON and send it
     if additional_args is None:
         additional_args = {}
 
@@ -173,19 +195,31 @@ def msg_len(data, length=3):
 
 
 def join_game(game_id, user_socket):
+    # Add user to game with ID game_id
+
     if game_id not in games:
         raise KeyError("Invalid game ID")
+
+    # Check if that game is full
     if len(games[game_id]["users"]) == 1:
         games[game_id]["users"].append(user_socket)
         clients[user_socket]["current_game"] = game_id
         send_board_update(game_id)
+    # We want to save the game objects of completed games,
+    # so we don't allow users to joined deserted lobbies.
+    elif len(games[game_id]["users"] == 0):
+        raise IndexError(f"This lobby can't be joined")
+
     else:
         a, b = [clients[x]["name"] for x in games[game_id]["users"]]
         raise IndexError(f"This game has already began, between {a} and {b}")
 
 
 def initialize_game(host, is_slow_game=False,delay=False):
+    # Initialize a game with 1 host
+
     game_id = params["game_id"]
+    # Add to games dictionary
     games[game_id] = {
         "game": Game(game_id),
         "users": [host],
@@ -193,11 +227,15 @@ def initialize_game(host, is_slow_game=False,delay=False):
         "cooldown": delay,
         "accepting": True
     }
+    # Set current game of host
     clients[host]["current_game"] = game_id
+    # Update next game_id
     params["game_id"] += 1
 
 
 def matchmaking():
+    # Matchmaking mode
+    # Works with a queue.
     while params["serverup"]:
         if len(queue) > 1:
             # get game id
@@ -245,12 +283,14 @@ def accept_incoming_connections():
 
 
 def kick_from_game(client, message=None):
+    # Kick user from game
+
     in_game = clients[client]["current_game"]
     if in_game is None:
         raise AttributeError("Cannot kick a user from a game if they're not in one.")
     elif not games[in_game]["game"].game_over:
         # if the user is in a game
-
+        # we need to notify the other player that a user has left.
         clients[client]["current_game"] = None
         name = clients[client]["name"]
 
@@ -281,6 +321,7 @@ def kick_from_game(client, message=None):
         log(data=f"{name} has been kicked from lobby #{in_game}", prefix="Kick")
 
 def validate_user_message(client, data, has_logged_in=True):
+    # Validate that a user-sent message is valid.
     message_types = ["Login", "Logout", "Lobbies List", "Game Move", "Quit Game", "Join Game", "Start Game", "Restart Game"]
     try:
         data = json.loads(data)
@@ -369,15 +410,6 @@ def handle_client(client):  # Takes client socket as argument.
     Then we handle every message, from normal, Commands everyone can see,
     and commands only the user can see.
     """
-    # remove disconnected users
-    # for user in clients.copy():
-    #     try:
-    #         simple_message(user, msgtype="Ping")
-    #     except Exception as e:
-    #         print("Removed", clients[user]["name"])
-    #         del clients[user]
-    #     else:
-    #         print("Successfully pinged", clients[user]["name"])
 
     try:
         taken_names = [x["name"] for x in clients.values()]
@@ -476,7 +508,6 @@ def handle_client(client):  # Takes client socket as argument.
                                            data=message,
                                            additional_args={"game_id": params['game_id'] - 1})
 
-                    # TODO Uriiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii here you can add the tournament match_making
                     if msg_type == "Restart Game":
                         if clients[client]["current_game"] is not None:
                             game_id = clients[client]["current_game"]

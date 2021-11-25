@@ -43,7 +43,8 @@ def send_data(server):
         # The rest of the command work in the same way.
         # Create a game
         if command in ["start", "create"]:
-
+            # The server works with JSON communication, so to send valid messages
+            # we use this format. All message types are described in the API.
             server.send(json.dumps(
                 {
                     "type": "Start Game",
