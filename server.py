@@ -34,7 +34,7 @@ def end_game(game_id):
     for move_num, move in game.log.items():
 
         # If the player is 1, this will remove 7 from the move. 13->6, 8->1
-        adjust_index = (move["player"] % 2)*7
+        adjust_index = move["player"]*7
         move["move"] -= adjust_index
 
         move["player"] = usernames[move["player"]]

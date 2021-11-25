@@ -38,7 +38,7 @@ def move(server):
 def send_data(server):
     while 1:
         # Choose command
-        command = input().lower()
+        command = input().lower().strip()
 
         # Create a game
         if command in ["start", "create"]:
