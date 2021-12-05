@@ -207,7 +207,7 @@ def join_game(game_id, user_socket):
         send_board_update(game_id)
     # We want to save the game objects of completed games,
     # so we don't allow users to joined deserted lobbies.
-    elif len(games[game_id]["users"] == 0):
+    elif len(games[game_id]["users"]) == 0:
         raise IndexError(f"This lobby can't be joined")
 
     else:
@@ -426,9 +426,9 @@ def handle_client(client):  # Takes client socket as argument.
 
             message = json.loads(unparsed)
             name = message["name"]
-
+            taken_names = [x["name"] for x in clients.values()]
             if name in taken_names:
-                send_error(client, data="This name is already taken", errtype="Invalid Name")
+                send_error(client, data=f"This name is already taken. Taken names: {taken_names}", errtype="Invalid Name")
             else:
                 send(client,{"type":"Login Successfull"})
                 logged_in = True
@@ -480,8 +480,6 @@ def handle_client(client):  # Takes client socket as argument.
 
                 msg_type = data["type"]
                 # At this point we may assume that we received a valid message from the user.
-
-                clients[client]["last_response"] = time.time()
 
                 if params["matchmaking mode"] == "lobbies":
                     if msg_type == "Start Game":
@@ -610,6 +608,7 @@ def handle_client(client):  # Takes client socket as argument.
                         send_error(client, "Something went wrong.", errtype="Invalid Move")
                     else:
                         cooldown = games[game_id]['cooldown']
+                        clients[client]["last_response"] = time.time()
                         _thread.start_new_thread(send_board_update, (clients[client]["current_game"], params['delay'] if cooldown else 0))
                         # send_board_update(clients[client]["current_game"])
 

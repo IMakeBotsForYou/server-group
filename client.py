@@ -47,9 +47,14 @@ def send_data(server):
             # we use this format. All message types are described in the API.
             server.send(json.dumps(
                 {
+                    # Message Type
                     "type": "Start Game",
-                    "slow_game": input('Slow Game? > ') == 't',        # Have a timeout that forces a kick if there's no response after X seconds.
-                    "delay": input('Delay Between Turns? > ') == 't'   # Delay between each turn, so the game can be seen in real time.
+
+                    # Have a timeout that forces a kick if there's no response after X seconds.
+                    "slow_game": input('Slow Game? > ') == 't',
+
+                    # Delay between each turn, so the game can be seen in real time.
+                    "delay": input('Delay Between Turns? > ') == 't'
                 }
             ).encode())
 
