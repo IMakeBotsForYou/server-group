@@ -39,13 +39,17 @@ def send_data(server):
     while 1:
         # Choose command
         command = input().lower().strip()
-
+        # The command 'Start Game' can be accessed by the aliases 'start' or 'create'.
+        # The rest of the command work in the same way.
         # Create a game
         if command in ["start", "create"]:
+            # The server works with JSON communication, so to send valid messages
+            # we use this format. All message types are described in the API.
             server.send(json.dumps(
                 {
                     "type": "Start Game",
-                    "slow_game": False
+                    "slow_game": input('Slow Game? > ') == 't',        # Have a timeout that forces a kick if there's no response after X seconds.
+                    "delay": input('Delay Between Turns? > ') == 't'   # Delay between each turn, so the game can be seen in real time.
                 }
             ).encode())
 

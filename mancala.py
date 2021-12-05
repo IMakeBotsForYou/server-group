@@ -98,7 +98,6 @@ class Mancala:
             index = 13
         if skip_bank == 7 and index == 7:
             index = 6
-        print(index)
         return index
 
     def validate_move(self, index, player=None):
