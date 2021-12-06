@@ -288,13 +288,16 @@ def kick_from_game(client, message=None):
     in_game = clients[client]["current_game"]
     if in_game is None:
         raise AttributeError("Cannot kick a user from a game if they're not in one.")
-    elif not games[in_game]["game"].game_over:
+        return
+
+    clients[client]["current_game"] = None
+    name = clients[client]["name"]
+
+    players = list(games[in_game]["users"])
+
+    if not games[in_game]["game"].game_over:
         # if the user is in a game
         # we need to notify the other player that a user has left.
-        clients[client]["current_game"] = None
-        name = clients[client]["name"]
-
-        players = list(games[in_game]["users"])
 
         events_so_far = len(games[in_game]["game"].log)
         games[in_game]["game"].log_event(events_so_far,
@@ -303,22 +306,29 @@ def kick_from_game(client, message=None):
                                              "move": "Surrender",
                                              "special event": "User has left the game."
                                          })
-        if message:
-            simple_message(client, msgtype="Notification",
-                           data=message)
 
         user_kicked_index = (1 - players.index(client))
         games[in_game]["game"].winner = user_kicked_index
 
         end_game(in_game)
 
-        players.remove(client)
 
+    if message:
+        simple_message(client, msgtype="Notification",
+                       data=message)
+
+
+    players.remove(client)
+
+    log(data=f"{name} has been kicked from lobby #{in_game}. {message if message else ''}", prefix="Kick")
+
+    try:
         simple_message(players[0], msgtype="Notification",
                        data=f"{name} has quit your Lobby.")
+    except:
+        # user was only user in lobby
+        pass
 
-        # print(f"{name} has been kicked from lobby #{in_game}")
-        log(data=f"{name} has been kicked from lobby #{in_game}", prefix="Kick")
 
 def validate_user_message(client, data, has_logged_in=True):
     # Validate that a user-sent message is valid.
