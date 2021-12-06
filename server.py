@@ -189,7 +189,12 @@ def send_board_update(game_id, seconds=0):
 
     # open timeout thread for the user that needs to answer
     if not games[game_id]["slow_game"]: #5
-        _thread.start_new_thread(inactivity_func, (params["timeout"], games[game_id]["users"][current_player]))
+        time_to_respond = params["timeout"]
+
+        # if game with cooldown accommodate for lag
+        if games[game_id]["cooldown"]:
+            time_to_respond += params['delay']
+        _thread.start_new_thread(inactivity_func, (time_to_respond, games[game_id]["users"][current_player]))
 
     try:
         p1 = games[game_id]["users"][0]
