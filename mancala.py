@@ -60,6 +60,8 @@ class Mancala:
     def reset(self):
         self.move_number = 1
         self.current_player = 0
+        # goes up instead of down
+        # self.board = [4, 4, 4, 4, 4, 4, 0] * 2
         self.board = [0, 4, 4, 4, 4, 4, 4] * 2
         self.log = {
         }
@@ -71,16 +73,31 @@ class Mancala:
         :param index: The current index to jump from
         :return: The next correct index
         """
+        # goes up instead of down
+        # 0 -> skip 14
+        # 1 -> skip 7
+        # skip_bank = (2-self.current_player) * 7
+        # index += 1
+        #
+        # if skip_bank == 14 and index == 14:
+        #     index = 0
+        # if skip_bank == 7 and index == 7:
+        #     index = 8
+
+
+
         # 0 -> skip 7
         # 1 -> skip 0
         skip_bank = (1 - self.current_player) * 7
         index -= 1
 
+        if index == -1:
+            index = 13
+
         if skip_bank == 0 and index == 0:
             index = 13
         if skip_bank == 7 and index == 7:
-            index = 8
-
+            index = 6
         return index
 
     def validate_move(self, index, player=None):
@@ -151,12 +168,12 @@ class Mancala:
         """
         if adjust_index:
             current_index += self.current_player * 7
-
         self.validate_move(current_index)
-        save_start = current_index
 
+        save_start = current_index
         amount = self.board[current_index]
         self.board[current_index] = 0
+
         while amount >= 1:
             """Progress (counter-clockwise) and lay down the marbles"""
             current_index = self.loop(current_index)
@@ -168,7 +185,10 @@ class Mancala:
         # is_current_player(current_index, self.current_player) and
         if self.board[current_index] == 1 and current_index % 7 != 0:
             # find matching hole
-            matching_hole = get_matching_hole(current_index)
+            # ==========================================
+            # GET MATCHING HOLE DOES NOT WORK WITH MINUS!
+            # ==========================================
+            matching_hole = get_matching_hole(current_index % 14)
             if self.board[matching_hole] != 0:
                 rule_3 = True
                 # move all the marbles from the matching hole to the
@@ -244,3 +264,20 @@ class Mancala:
             "log": self.log
         }
 
+
+import unittest
+
+
+class TestMancala(unittest.TestCase):
+    def test(self):
+        board = Mancala(0)
+        board.make_move(1)
+        self.assertEqual(board.board, [1, 0, 4, 4, 4, 4, 4, 0, 4, 4, 4, 5, 5, 5])
+        with self.assertRaises(ValueError):
+            board.make_move(1)
+        board.make_move(12)  # land in your own goal, get an extra turn
+        board.make_move(11)
+
+
+if __name__ == '__main__':
+    unittest.main()

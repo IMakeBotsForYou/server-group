@@ -1,7 +1,15 @@
+# imports were put here to remove all the imports from server.py and client.py
+# SERVER AND CLIENT
 from threading import Thread, Event
-import time
-# put here to remove all the imports from server.py and client.py
 from socket import AF_INET, socket, SOCK_STREAM, MSG_PEEK, gethostname, gethostbyname
-from re import search
 import json
+from re import search, sub
+import time
+from datetime import datetime
+import _thread
+# CLIENT
 import random
+
+# SERVER
+import mancala
+from mancala import Mancala as Game
