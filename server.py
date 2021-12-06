@@ -2,22 +2,24 @@
 from imports import *
 import _thread
 # global parameters
-matchmaking_modes = ["lobbies", "fast_queue"]
+matchmaking_modes = ["lobbies", "queue"]
 params = {
     "game_id": 0,
     "verbose": True,
     "serverup": True,
-    "timeout": 5,  # 5 seconds,
-    "delay": 1,
-    "matchmaking mode": "lobbies"
+    "timeout": 2,  # 1 seconds,
+    "matchmaking mode": "queue",  # "queue"
+    "delay": 1
 }
-queue = []
+
+competitors = []
 games = {
 
 }
 game_logs = {
 
 }
+leader_board = {}
 
 def log(data, prefix=None):
     #   Pretty print
@@ -29,12 +31,25 @@ def log(data, prefix=None):
     if prefix is None:
         prefix = "Log"
     current_time = datetime.now().strftime("%H:%M:%S")
-    print(f"[{prefix}]\t{current_time}  {data}")
+    # print(f"[{prefix}]\t{current_time}  {data}")
+
+FLAG = False
 
 
 def end_game(game_id):
-    # This function is run when a game is ended.
-    # It sends the log to both of the players in the Game Over message.
+    """
+    ends the game when exception is raised.
+    """
+    global leader_board
+    winner = games[game_id]["game"].winner
+    for client in games[game_id]["users"]:
+        if client not in leader_board:
+            leader_board.update({client: 0})
+    if winner == 2:
+        leader_board[games[game_id]["users"][0]] += 1
+        leader_board[games[game_id]["users"][1]] += 1
+    else:
+        leader_board[games[game_id]["users"][winner]] += 2
 
     game = games[game_id]["game"]
     usernames = [clients[client]["name"] for client in games[game_id]["users"]]
@@ -42,7 +57,6 @@ def end_game(game_id):
     # Adjust the log so it includes player names and adjusted indexes
     try:
         for move_num, move in game.log.items():
-
             # If the player is 1, this will remove 7 from the move. 13->6, 8->1
             adjust_index = move["player"]*7
             move["move"] -= adjust_index
@@ -57,6 +71,24 @@ def end_game(game_id):
 
     except TypeError:
         log(prefix="Err", data="Error adjusting logs. Sending them as is.")
+
+    for move in game.log:
+        if game.log[move]["move"] != "Surrender":
+            # The player is already updated. So this is unneeded and will cause an error.
+            game.log[move]["player"] = users[game.log[move]["player"]]
+            # If the player is 1, this will remove 7 from the move. 13->6, 8->1
+            adjust_index = move["player"]*7
+            move["move"] -= adjust_index
+
+            move["player"] = usernames[move["player"]]
+
+            # Change "Player A/B won" to the user's name.
+            if move["special event"][-4:] == 'won.':
+                winner_socket = games[game_id]["users"][winner]
+                # using regex bc there might be a special event like rule 3 or extra move as well in the mix :)
+                move["special event"] = sub(move["special event"], 'A|B', f"{clients[winner_socket]['name']} won.")
+
+    
     # else:
     first_p = {
         "type": "Game Over",
@@ -68,6 +100,23 @@ def end_game(game_id):
         "won": winner == 1,
         "log": game.log
     }
+    # sort leaderboard
+    new_leader = dict(reversed(sorted(leader_board.items(), key=lambda item: item[1])))
+
+    global FLAG
+    while FLAG:
+        pass # wait
+
+    FLAG=True
+    print("Leaderboard:")
+    leader_board = new_leader
+    for i, client in enumerate(leader_board):
+        print(f"{i + 1}.{clients[client]['name']}: {leader_board[client]}")
+    FLAG=False
+
+    competitors.append(games[game_id]["users"][0])
+    competitors.append(games[game_id]["users"][1])
+
     log(prefix="END", data="Trying to send logs")
     try:
         p1 = games[game_id]["users"][0]
@@ -140,14 +189,7 @@ def send_board_update(game_id, seconds=0):
 
     # open timeout thread for the user that needs to answer
     if not games[game_id]["slow_game"]: #5
-        delay = params["timeout"]
-
-        # accommodate for game cooldown / delay
-        if games[game_id]["cooldown"]:
-            delay += params['delay']
-
-        # use fixed delay
-        _thread.start_new_thread(inactivity_func, (delay, games[game_id]["users"][current_player]))
+        _thread.start_new_thread(inactivity_func, (params["timeout"], games[game_id]["users"][current_player]))
 
     try:
         p1 = games[game_id]["users"][0]
@@ -231,8 +273,7 @@ def initialize_game(host, is_slow_game=False,delay=False):
         "game": Game(game_id),
         "users": [host],
         "slow_game": is_slow_game,
-        "cooldown": delay,
-        "accepting": True
+        "next_message": time.time()
     }
     # Set current game of host
     clients[host]["current_game"] = game_id
@@ -241,27 +282,52 @@ def initialize_game(host, is_slow_game=False,delay=False):
 
 
 def matchmaking():
-    # Matchmaking mode
-    # Works with a queue.
-    while params["serverup"]:
-        if len(queue) > 1:
-            # get game id
-            idnum = params["game_id"]
+    """
+    competition.
+    """
 
-            # get first 2 users in queue
-            users = queue.pop(0), queue.pop(0)
-            clients[users[0]]["current_game"] = idnum
-            clients[users[1]]["current_game"] = idnum
-            # create game and save it in the games dictionary
-            games[idnum] = {
-                "game": Game(idnum),
-                "users": users
-            }
-            # inc the next game id by 1
-            params["game_id"] += 1
-            # notify the 2 users of game start.
-            # first user to join the queue gets first move.
-            send_board_update(idnum)
+    schedule = []  # games schedule
+    while 1:
+        if len(clients) == 4:
+            for client in clients:
+                for clnt in clients:
+                    if clnt != client:
+                        schedule.append([client, clnt])
+            break
+
+    while params["serverup"]:
+
+        if len(list(set(competitors))) == 4 and schedule != []:
+            # get game id
+
+            # clean competitor's
+            [competitors.remove(comp) for comp in competitors]
+            match = [0, 0]
+            k = 0
+            # round competition
+            for i in range(2):
+                idnum = params["game_id"]
+                while match[0] == schedule[k][0] or match[0] == schedule[k][1] or match[1] == schedule[k][1] or match[
+                    1] == schedule[k][0]:
+                    k += 1
+
+                match = schedule.pop(k)
+                k = 0
+                clients[match[0]]["current_game"] = idnum
+                clients[match[1]]["current_game"] = idnum
+
+                # create game and save it in the games dictionary
+                games[idnum] = {
+                    "game": Game(idnum),
+                    "users": match,
+                    "slow_game": False,
+                    "next_message": time.time()
+                }
+                params["game_id"] += 1
+
+                # notify the 2 users of game start.
+                # first user to join the queue gets first move.
+                send_board_update(idnum)
 
 
 def accept_incoming_connections():
@@ -271,7 +337,7 @@ def accept_incoming_connections():
     Then, we start a thread for that user and handle their input.
     """
     makingmode = params["matchmaking mode"]
-    if makingmode == "fast_queue":
+    if makingmode == "queue":
         # matchmaking_thread = Thread(target=matchmaking, daemon=True)
         # matchmaking_thread.start()
         _thread.start_new_thread(matchmaking, ())
@@ -284,6 +350,7 @@ def accept_incoming_connections():
         log(data=f"{client_address} has connected.", prefix="Login")
         addresses[client] = client_address
         _thread.start_new_thread(handle_client, (client,))
+
         # Thread(target=handle_client, args=(client,), daemon=True).start()
         # print(f"Starting thread for {client_address}")
         log(data=f"Starting thread for {client_address}", prefix="Login")
@@ -380,7 +447,7 @@ def validate_user_message(client, data, has_logged_in=True):
 
         try:
             game_id = clients[client]["current_game"]
-            if not games[game_id]["accepting"]:
+            if games[game_id]["cooldown"]:
                 send_error(client, "The game is still in cooldown.", errtype="Time Error")
                 return False
         except KeyError:
@@ -463,7 +530,7 @@ def handle_client(client):  # Takes client socket as argument.
                            "current_game": None}
 
         if params["matchmaking mode"] == "queue":
-            queue.append(client)
+            competitors.append(client)
 
         name = clients[client]["name"]
 
@@ -554,8 +621,14 @@ def handle_client(client):  # Takes client socket as argument.
                                            data=f"You have successfully joined game #{game_id}, "
                                                 f"your opponent is {opponent_name}")
 
-                            simple_message(opponent_socket, msgtype="Notification",
-                                           data=f"{name} has joined your Lobby.")
+                if msg_type == "Restart Game":
+                    if clients[client]["current_game"] is not None:
+                        game_id = clients[client]["current_game"]
+                        # if user is the owner of the game:
+                        # if client != games[game_id]["users"][0]:
+                        #     send_error(client, errtype="Permission Error",
+                        #                data="You are not the owner of the game. "
+                        #                     "Only the owner of the game can restart it.")
 
                     #
                     if msg_type == "Quit Game":
@@ -571,39 +644,79 @@ def handle_client(client):  # Takes client socket as argument.
                             simple_message(client, msgtype="Success",
                                            data=f"You have successfully quit game #{in_game}")
 
+                # #
+                # if msg_type == "Game Move":
+                #     play_index = data["index"]
+                #     try:
+                #         game_id = clients[client]["current_game"]
+
+                #         if games[game_id]["accepting"]:
+                #             games[game_id]["game"].make_move(play_index, adjust_index=True, verbose=True)
+                #         else:
+                #             send_error(client, f"The game has a delay of {params['delay']}s between turns. Wait until the delay is over.",
+                #                        errtype="Bad Request")
+                #             continue
+
+                #         if games[game_id]["game"].game_over:
+                #             raise AttributeError
+
+                #     except ValueError:
+                #         send_error(client, "You've made an invalid move. It is still your turn.",
+                #                    errtype="Invalid Move")
+                #     except IndexError as e:
+                #         # Selected an empty hole. # GAMEMOVE INDEXERROR
+                #         log(prefix="Err", data="User sent bad index, GAMEMOVE INDEXERROR." + f"[{play_index} is empty and thus invalid, it is still your turn.]")
+                #         send_error(client, f"{play_index} is empty and thus invalid, it is still your turn.", errtype="Invalid Move")
+                #     except TypeError as e:
+                #         print(e)
+                #         # I don't know what this error is, but it's probably not a non-int value because that's taken care off
+                #         # in the validate function in the beginning.
+
+                #         # log(prefix="Err", data="User sent bad value, GAMEMOVE TYPEERROR.")
+                #         # send_error(client, "Moves have to be ints. It is still your turn.", errtype="Invalid Move")
+                #     except AttributeError:
+                #         # Someone won
+                #         log(prefix="WON", data=f"Lobby #{clients[client]['current_game']} has ended its game.")
+                #         end_game(clients[client]["current_game"])
+                #     except KeyError:
+                #         """
+                #         If the client would send {Game Move} messages while not in a game,
+                #         or after being kicked, it would give a KeyError for 
+                #         games[clients[client]["current_game"]]["game"]
+                #         This is now handled. 
+                #         """
+                #         send_error(client, "Something went wrong.", errtype="Invalid Move")
+                #     else:
+                #         cooldown = games[game_id]['cooldown']
+                #         clients[client]["last_response"] = time.time()
+                #         _thread.start_new_thread(send_board_update, (clients[client]["current_game"], params['delay'] if cooldown else 0))
+                #         # send_board_update(clients[client]["current_game"])
+
+            
+
                 #
                 if msg_type == "Game Move":
-                    play_index = data["index"]
-                    try:
-                        game_id = clients[client]["current_game"]
-
-                        if games[game_id]["accepting"]:
-                            games[game_id]["game"].make_move(play_index, adjust_index=True, verbose=True)
+                    if params["matchmaking mode"] == "queue":
+                        if time.time() > games[clients[client]["current_game"]]["next_message"]:
+                            games[clients[client]["current_game"]]["next_message"] = time.time() + 1
                         else:
-                            send_error(client, f"The game has a delay of {params['delay']}s between turns. Wait until the delay is over.",
-                                       errtype="Bad Request")
-                            continue
-
-                        if games[game_id]["game"].game_over:
-                            raise AttributeError
-
+                            send_error(client, "You've made a move too soon. It is still in cooldown.",
+                                        errtype="Timeout error")
+                    play_index = data["index"]
+                    if clients[client]["current_game"] is None:
+                        continue
+                    try:
+                        games[clients[client]["current_game"]]["game"].make_move(play_index, adjust_index=True)
                     except ValueError:
                         send_error(client, "You've made an invalid move. It is still your turn.",
-                                   errtype="Invalid Move")
+                                    errtype="Invalid Move")
                     except IndexError as e:
-                        # Selected an empty hole. # GAMEMOVE INDEXERROR
-                        log(prefix="Err", data="User sent bad index, GAMEMOVE INDEXERROR." + f"[{play_index} is empty and thus invalid, it is still your turn.]")
-                        send_error(client, f"{play_index} is empty and thus invalid, it is still your turn.", errtype="Invalid Move")
-                    except TypeError as e:
-                        print(e)
-                        # I don't know what this error is, but it's probably not a non-int value because that's taken care off
-                        # in the validate function in the beginning.
-
-                        # log(prefix="Err", data="User sent bad value, GAMEMOVE TYPEERROR.")
-                        # send_error(client, "Moves have to be ints. It is still your turn.", errtype="Invalid Move")
+                        # Selected an empty hole.
+                        send_error(client, str(e) + " It is still your turn.", errtype="Invalid Move")
+                    except TypeError:
+                        send_error(client, "Moves have to be ints. It is still your turn.", errtype="Invalid Move")
                     except AttributeError:
                         # Someone won
-                        log(prefix="WON", data=f"Lobby #{clients[client]['current_game']} has ended its game.")
                         end_game(clients[client]["current_game"])
                     except KeyError:
                         """
@@ -614,45 +727,29 @@ def handle_client(client):  # Takes client socket as argument.
                         """
                         send_error(client, "Something went wrong.", errtype="Invalid Move")
                     else:
-                        cooldown = games[game_id]['cooldown']
-                        clients[client]["last_response"] = time.time()
-                        _thread.start_new_thread(send_board_update, (clients[client]["current_game"], params['delay'] if cooldown else 0))
-                        # send_board_update(clients[client]["current_game"])
+                        send_board_update(clients[client]["current_game"])
 
-                if msg_type == "Logout":
-                    simple_message(client, msgtype="Success", data="You have been logged out.")
-                    raise ConnectionAbortedError("Client Logged Out")
+                        def game_status(game_id):
+                            if games[game_id]["game"].winner == 2:
+                                return "Tie"
+                            users = [get_name(c) for c in games[game_id]["users"]]
+                            winner = games[game_id]["game"].winner
+                            if winner is None:
+                                return "Unfinished"
+                            try:
+                                return users[winner] + " won."
+                            except IndexError:
+                                return games[game_id]["game"].winner + " won."
 
-                if msg_type == "Lobbies List":
-                    dynamic = "lobby" if params['game_id'] == 1 else "lobbies"
-                    all_lobbies = {}
-                    def get_name(client):
-                        if client in clients:
-                            return clients[client]['name']
-                        else:
-                            return "<Left Server>"
+                        for game_id in games:
+                            all_lobbies[game_id] = {
+                                "users": [get_name(c) for c in games[game_id]['users']],
+                                "game status": game_status(game_id)
+                            }
 
-                    def game_status(game_id):
-                        if games[game_id]["game"].winner == 2:
-                            return "Tie"
-                        users = [get_name(c) for c in games[game_id]["users"]]
-                        winner = games[game_id]["game"].winner
-                        if winner is None:
-                            return "Unfinished"
-                        try:
-                            return users[winner] + " won."
-                        except IndexError:
-                            return games[game_id]["game"].winner + " won."
-
-                    for game_id in games:
-                        all_lobbies[game_id] = {
-                            "users": [get_name(c) for c in games[game_id]['users']],
-                            "game status": game_status(game_id)
-                        }
-
-                    simple_message(client, msgtype="Notification",
-                                   data=f"Here are all of the lobbies. There are currently {params['game_id']} {dynamic}.",
-                                   additional_args=all_lobbies)
+                        simple_message(client, msgtype="Notification",
+                                        data=f"Here are all of the lobbies. There are currently {params['game_id']} {dynamic}.",
+                                        additional_args=all_lobbies)
 
             except ConnectionResetError:  # 10054 B
                 # print(f"{clients[client]['name']} error'd out.")
@@ -671,6 +768,8 @@ def handle_client(client):  # Takes client socket as argument.
                 send_error(client, errtype="Bad Message", data="UnicodeDecodeError has occured.")
             except KeyError:
                 send_error(client, errtype="Internal Error", data="Some player might have disconnected, which might have caused a KeyError.")
+            except Exception as e:
+                send_error(client, errtype="Server Error", data=str(e))
 
 def broadcast(msg, send_to=None):
     """Broadcasts a message to all the clients."""
