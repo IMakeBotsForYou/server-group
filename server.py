@@ -7,9 +7,9 @@ params = {
     "game_id": 0,
     "verbose": True,
     "serverup": True,
-    "timeout": 2,  # 1 seconds,
+    "timeout": 4,  # 1 seconds,
     "matchmaking mode": "queue",  # "queue"
-    "delay": 1
+    "delay": 3
 }
 
 competitors = []
@@ -17,6 +17,7 @@ games = {
 
 }
 game_logs = {
+    time.sleep(seconds)
 
 }
 leader_board = {}
@@ -31,7 +32,7 @@ def log(data, prefix=None):
     if prefix is None:
         prefix = "Log"
     current_time = datetime.now().strftime("%H:%M:%S")
-    # print(f"[{prefix}]\t{current_time}  {data}")
+    print(f"[{prefix}]\t{current_time}  {data}")
 
 FLAG = False
 
@@ -278,6 +279,7 @@ def initialize_game(host, is_slow_game=False,delay=False):
         "game": Game(game_id),
         "users": [host],
         "slow_game": is_slow_game,
+        "cooldown": delay,
         "next_message": time.time()
     }
     # Set current game of host
@@ -450,13 +452,13 @@ def validate_user_message(client, data, has_logged_in=True):
             send_error(client, errtype="Bad Message", data="'index' field must be int.")
             return False
 
-        try:
-            game_id = clients[client]["current_game"]
-            if games[game_id]["cooldown"]:
-                send_error(client, "The game is still in cooldown.", errtype="Time Error")
-                return False
-        except KeyError:
-            return False
+        # try:
+        #     game_id = clients[client]["current_game"]
+        #     if games[game_id]["cooldown"]:
+        #         send_error(client, "The game is still in cooldown.", errtype="Time Error")
+        #         return False
+        # except KeyError:
+        #     return False
 
     elif msg_type == "Join Game":
         try:
@@ -512,7 +514,7 @@ def handle_client(client):  # Takes client socket as argument.
                 send(client,{"type":"Login Successfull"})
                 logged_in = True
 
-        # print(f"{client}\n has registered as {name}")
+        print(f"{client}\n has registered as {name}")
 
     except ConnectionResetError:  # 10054 A
         # print("Client error'd out.")
@@ -732,7 +734,9 @@ def handle_client(client):  # Takes client socket as argument.
                         """
                         send_error(client, "Something went wrong.", errtype="Invalid Move")
                     else:
-                        send_board_update(clients[client]["current_game"])
+                        cooldown = games[game_id]['cooldown']
+                        clients[client]["last_response"] = time.time()
+                        _thread.start_new_thread(send_board_update, (clients[client]["current_game"], params['delay'] if cooldown else 0))
 
                         def game_status(game_id):
                             if games[game_id]["game"].winner == 2:
