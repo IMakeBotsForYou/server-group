@@ -22,6 +22,8 @@ def pretty_print_log(log):
 
 
 def move(server):
+    # the delay that the game has
+    # time.sleep(0.1)
     # Make random move
     index = random.randint(1, 6)
     print(f"--Making move {index}--")
@@ -132,7 +134,8 @@ def recv_data(server):
             if data["errtype"] == "Invalid Name":
                 log(data=data["data"], prefix="Error")
 
-            if data["errtype"] == "Invalid Move":
+            # if it's in invalid move or moved too soon
+            if data["errtype"] in ["Invalid Move", "Time Error"]:
                 log(data=data["data"], prefix="Error")
                 move(server)
 
