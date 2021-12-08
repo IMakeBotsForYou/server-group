@@ -759,6 +759,8 @@ def handle_client(client):  # Takes client socket as argument.
                 log(data=f"{clients[client]['name']} error'd out. ConnectionResetError handle_client after 10054 B ", prefix="Err")
                 del addresses[client]
                 del clients[client]
+                if client in competitors:
+                    competitors.remove(client)
                 # competitors.remove(client)
                 break
             except ConnectionAbortedError as e: # ERR ID ABORT
@@ -766,6 +768,8 @@ def handle_client(client):  # Takes client socket as argument.
                 log(data=f"{clients[client]['name']} error'd out. ConnectionAbortedError handle_client after ERR ID ABORT {e}", prefix="Err")
                 del addresses[client]
                 del clients[client]
+                if client in competitors:
+                    competitors.remove(client)
                 # competitors.remove(client)
                 break
             except UnicodeDecodeError:
