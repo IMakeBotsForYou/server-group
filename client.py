@@ -23,7 +23,6 @@ def pretty_print_log(log):
 
 def move(server):
     # the delay that the game has
-    # time.sleep(0.1)
     # Make random move
     index = random.randint(1, 6)
     print(f"--Making move {index}--")

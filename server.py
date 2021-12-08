@@ -7,9 +7,9 @@ params = {
     "game_id": 0,
     "verbose": True,
     "serverup": True,
-    "timeout": 4,  # 1 seconds,
+    "timeout": 2,  # 1 seconds,
     "matchmaking mode": "queue",  # "queue"
-    "delay": 0
+    "delay": 0.1
 }
 
 competitors = []
@@ -135,7 +135,8 @@ def inactivity_func(time_to_respond, client):
     time.sleep(time_to_respond)
     try:
         # Check if user responded
-        if clients[client]["last_response"] <= start_time:
+        game_id = clients[client]["current_game"]
+        if clients[client]["last_response"] <= start_time and not games[game_id]["game"].game_over:
             # the user didn't answer
             try:
                 kick_from_game(client, f"Received no response for {time_to_respond} seconds. "
@@ -173,13 +174,13 @@ def send_board_update(game_id, seconds=0):
     }
 
     # open timeout thread for the user that needs to answer
-    if not games[game_id]["slow_game"]: #5
-        time_to_respond = params["timeout"]
-
-        # if game with cooldown accommodate for lag
-        if games[game_id]["delay_between_turns"]:
-            time_to_respond += params['delay']
-        _thread.start_new_thread(inactivity_func, (time_to_respond, games[game_id]["users"][current_player]))
+    # if not games[game_id]["slow_game"]: #5
+    #     time_to_respond = params["timeout"]
+    #
+    #     # if game with cooldown accommodate for lag
+    #     if games[game_id]["delay_between_turns"]:
+    #         time_to_respond += params['delay']
+    #     _thread.start_new_thread(inactivity_func, (time_to_respond, games[game_id]["users"][current_player]))
 
     try:
         p1 = games[game_id]["users"][0]
@@ -452,13 +453,13 @@ def validate_user_message(client, data, has_logged_in=True):
             send_error(client, errtype="Bad Message", data="'index' field must be int.")
             return False
 
-        try:
-            game_id = clients[client]["current_game"]
-            if not games[game_id]["accepting"]:
-                send_error(client, "The game is still in cooldown.", errtype="Time Error")
-                return False
-        except KeyError:
-            return False
+        # try:
+        #     game_id = clients[client]["current_game"]
+        #     if not games[game_id]["accepting"]:
+        #         send_error(client, "The game is still in cooldown.", errtype="Time Error")
+        #         return False
+        # except KeyError:
+        #     return False
 
     elif msg_type == "Join Game":
         try:
@@ -658,8 +659,9 @@ def handle_client(client):  # Takes client socket as argument.
                         game_id = clients[client]["current_game"]
 
                         # Delay check moved to validate_user_message
-
-                        games[game_id]["game"].make_move(play_index, adjust_index=True, verbose=True)
+                        cp = games[game_id]["game"].current_player
+                        if games[game_id]["users"][cp] == client:
+                            games[game_id]["game"].make_move(play_index, adjust_index=True, verbose=True)
 
 
                         if games[game_id]["game"].game_over:
@@ -757,12 +759,14 @@ def handle_client(client):  # Takes client socket as argument.
                 log(data=f"{clients[client]['name']} error'd out. ConnectionResetError handle_client after 10054 B ", prefix="Err")
                 del addresses[client]
                 del clients[client]
+                # competitors.remove(client)
                 break
             except ConnectionAbortedError as e: # ERR ID ABORT
                 # print(f"{clients[client]['name']} error'd out.")
                 log(data=f"{clients[client]['name']} error'd out. ConnectionAbortedError handle_client after ERR ID ABORT {e}", prefix="Err")
                 del addresses[client]
                 del clients[client]
+                # competitors.remove(client)
                 break
             except UnicodeDecodeError:
                 log(prefix="Err", data="User sent bad message, UnicodeDecodeError has occured.")
